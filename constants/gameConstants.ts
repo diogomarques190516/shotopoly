@@ -1,4 +1,5 @@
-import type { BoardSpace } from '../lib/types';
+import type { BoardSpace, Player } from '../lib/types';
+import { ALL_SPACES } from '../lib/gameLogic';
 
 export const C = {
   bg:        '#0a0d18',
@@ -28,9 +29,17 @@ export function getBandColor(space: BoardSpace): string | undefined {
   return undefined;
 }
 
-export function getLeveledRent(space: BoardSpace, propLevels: Record<string, number>): number {
+export function hasMonopoly(owner: Player, space: BoardSpace): boolean {
+  if (!space.color) return false;
+  const colorTiles = ALL_SPACES.filter(s => s.type === 'property' && s.color === space.color);
+  const owned = owner.properties as number[];
+  return colorTiles.every(s => owned.includes(s.position));
+}
+
+export function getLeveledRent(space: BoardSpace, propLevels: Record<string, number>, owner?: Player): number {
   const level = propLevels[String(space.position)] ?? 1;
-  return (space.rent ?? 0) * level;
+  const monopoly = owner ? hasMonopoly(owner, space) : false;
+  return (space.rent ?? 0) * level * (monopoly ? 2 : 1);
 }
 
 export function getLeveledSips(space: BoardSpace, propLevels: Record<string, number>): number {

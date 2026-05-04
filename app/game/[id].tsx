@@ -294,7 +294,7 @@ export default function GameScreen() {
       if (!owner) { setModal({ kind: 'buy', space }); return; }
       if (owner.id === myPlayer.id) { setModal({ kind: 'upgrade', space }); return; }
       // Someone else owns it — lander picks how to pay (owner collects passively)
-      const levRent = getLeveledRent(space, propLevels);
+      const levRent = getLeveledRent(space, propLevels, owner);
       const levSips = getLeveledSips(space, propLevels);
       setModal({ kind: 'pay_rent', space, ownerName: owner.name, ownerId: owner.id, ownerMoney: owner.money, leveledRent: levRent, leveledSips: levSips });
     }
