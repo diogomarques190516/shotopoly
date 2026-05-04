@@ -14,16 +14,20 @@
       "backgroundColor": "#1a0a2e"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "com.shotopoly.app",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Required by expo-av for audio playback on iOS."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
-        "backgroundColor": "#3D1B6B"
+        "backgroundColor": "#1a0a2e"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.shotopoly"
+      "package": "com.shotopoly.app"
     },
     "web": {
       "favicon": "./assets/favicon.png"
