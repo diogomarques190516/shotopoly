@@ -1,13 +1,14 @@
-import { View, Text, ScrollView } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { Player, BoardSpace } from '../lib/types';
 import { ALL_SPACES } from '../lib/gameLogic';
 import { C, PLAYER_COLORS, PLAYER_EMOJIS, formatMoney } from '../constants/gameConstants';
 
-export function PropertiesPanel({ players, currentPlayerId, myPlayerId, propLevels }: {
+export function PropertiesPanel({ players, currentPlayerId, myPlayerId, propLevels, onDrink }: {
   players: Player[];
   currentPlayerId: string;
   myPlayerId: string | null;
   propLevels: Record<string, number>;
+  onDrink?: (playerId: string) => void;
 }) {
   // Build ordered list: current player first, then rest in turn order
   const currentIdx = players.findIndex(p => p.id === currentPlayerId);
@@ -54,9 +55,16 @@ export function PropertiesPanel({ players, currentPlayerId, myPlayerId, propLeve
                     <Text style={{ fontSize: 8, color: C.gold, fontWeight: '700' }}>▶</Text>
                   )}
                   <Text style={{ fontSize: 9, color: C.green, marginLeft: 4 }}>{formatMoney(p.money)}</Text>
-                  {(p.shots_owed ?? 0) > 0 && (
-                    <Text style={{ fontSize: 9, color: '#E94560' }}>🥃×{p.shots_owed}</Text>
-                  )}
+                  {(p.shots_owed ?? 0) > 0 && onDrink ? (
+                    <TouchableOpacity
+                      onPress={() => onDrink(p.id)}
+                      style={{ backgroundColor: '#E94560', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 1, marginLeft: 4 }}
+                    >
+                      <Text style={{ fontSize: 9, color: '#fff', fontWeight: '700' }}>🥃×{p.shots_owed}</Text>
+                    </TouchableOpacity>
+                  ) : (p.shots_owed ?? 0) > 0 ? (
+                    <Text style={{ fontSize: 9, color: '#E94560', marginLeft: 4 }}>🥃×{p.shots_owed}</Text>
+                  ) : null}
                 </View>
 
                 {/* Property cards — horizontal scroll */}

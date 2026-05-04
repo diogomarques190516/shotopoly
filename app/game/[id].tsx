@@ -32,11 +32,13 @@ import { initSounds, playSound } from '../../lib/sounds';
 // ── modal union ───────────────────────────────────────────────────────────────
 
 type ModalType =
-  | { kind: 'buy';      space: BoardSpace }
-  | { kind: 'upgrade';  space: BoardSpace }
-  | { kind: 'pay_rent'; space: BoardSpace; ownerName: string; ownerId: string; ownerMoney: number; leveledRent: number; leveledSips: number }
-  | { kind: 'event';    message: string; effect: string; currentMoney: number }
+  | { kind: 'buy';        space: BoardSpace }
+  | { kind: 'upgrade';    space: BoardSpace }
+  | { kind: 'pay_rent';   space: BoardSpace; ownerName: string; ownerId: string; ownerMoney: number; leveledRent: number; leveledSips: number }
+  | { kind: 'event';      message: string; effect: string; currentMoney: number }
   | { kind: 'notification'; title: string; message: string; accentColor: string }
+  | { kind: 'jail_choice' }
+  | { kind: 'winner'; winnerName: string; winnerEmoji: string; finalStandings: Array<{ name: string; money: number; shots: number; emoji: string }> }
   | null;
 
 // ── GameScreen ────────────────────────────────────────────────────────────────
@@ -81,31 +83,15 @@ export default function GameScreen() {
     };
   }, [id]);
 
-  // Auto-skip jailed turns: fires whenever it becomes this player's turn
+  // Show jail choice modal when it becomes this player's turn while jailed
   useEffect(() => {
-    if (!isMyTurn || !gameState || !myPlayer) return;
-    if ((myPlayer.jail_turns ?? 0) <= 0) return;
-    // Guard: process each turn number at most once
+    if (!gameState || !myPlayer) return;
+    const myTurn = gameState.current_player_id === myPlayer.id && gameState.phase === 'rolling';
+    if (!myTurn || (myPlayer.jail_turns ?? 0) <= 0) return;
     if (processedJailTurnRef.current === gameState.turn_number) return;
     processedJailTurnRef.current = gameState.turn_number;
-
-    const skipJailTurn = async () => {
-      // Fetch fresh value to avoid stale closure
-      const { data: fresh } = await supabase
-        .from('players').select('jail_turns').eq('id', myPlayer.id).single();
-      const current = fresh?.jail_turns ?? 0;
-      if (current <= 0) return; // freed since last render
-      const remaining = current - 1;
-      await supabase.from('players').update({ jail_turns: remaining }).eq('id', myPlayer.id);
-      const msg = remaining > 0
-        ? `Ainda ${remaining} ronda${remaining !== 1 ? 's' : ''} na cadeia.`
-        : 'Liberto! Podes jogar na próxima ronda.';
-      playSound('jail');
-      showNotification('🔒 Na Cadeia', msg, '#FF6BD0');
-      notifContinuationRef.current = advanceTurn;
-    };
-    skipJailTurn();
-  }, [isMyTurn, gameState?.turn_number]);
+    setModal({ kind: 'jail_choice' });
+  }, [gameState, myPlayer]);
 
   async function loadGame() {
     try {
@@ -447,6 +433,82 @@ export default function GameScreen() {
     await advanceTurn();
   }
 
+  // ── jail bail ────────────────────────────────────────────────────────────────
+
+  async function handleJailChoice(bail: boolean) {
+    if (!myPlayer || !gameState) return;
+    setModal(null);
+    if (bail) {
+      if (myPlayer.money < 50000) {
+        showNotification('Sem fundos', 'Não tens €50k para pagar a caução.', '#5A6378');
+        return;
+      }
+      await supabase.from('players').update({ money: myPlayer.money - 50000, jail_turns: 0 }).eq('id', myPlayer.id);
+      // Keep current player — they roll this turn
+      await supabase.from('game_states').update({ phase: 'rolling' }).eq('id', gameState.id);
+      setGameState(prev => prev ? { ...prev, phase: 'rolling' } : prev);
+    } else {
+      const { data: fresh } = await supabase.from('players').select('jail_turns').eq('id', myPlayer.id).single();
+      const remaining = Math.max(0, (fresh?.jail_turns ?? 0) - 1);
+      await supabase.from('players').update({ jail_turns: remaining }).eq('id', myPlayer.id);
+      const msg = remaining > 0
+        ? `Ainda ${remaining} ronda${remaining !== 1 ? 's' : ''} na cadeia.`
+        : 'Liberto! Podes jogar na próxima ronda.';
+      playSound('jail');
+      showNotification('🔒 Na Cadeia', msg, '#FF6BD0');
+      notifContinuationRef.current = advanceTurn;
+    }
+  }
+
+  // ── sell property ─────────────────────────────────────────────────────────────
+
+  async function handleSell(position: number) {
+    if (!myPlayer) return;
+    const space = getBoardSpace(position);
+    const salePrice = Math.floor((space.price ?? 0) * 0.5);
+    const { data: fresh } = await supabase.from('players').select('money, properties').eq('id', myPlayer.id).single();
+    const currentMoney = fresh?.money ?? myPlayer.money;
+    const currentProps = (fresh?.properties as number[] ?? []);
+    await supabase.from('players').update({
+      money: currentMoney + salePrice,
+      properties: currentProps.filter(p => p !== position),
+    }).eq('id', myPlayer.id);
+    await advanceTurn();
+  }
+
+  // ── shot tracker ──────────────────────────────────────────────────────────────
+
+  async function handleDrinkShot(playerId: string) {
+    const p = players.find(pl => pl.id === playerId);
+    if (!p || p.shots_owed <= 0) return;
+    await supabase.from('players').update({ shots_owed: p.shots_owed - 1 }).eq('id', p.id);
+  }
+
+  // ── winner detection ──────────────────────────────────────────────────────────
+
+  function checkWinner(all: Player[]): boolean {
+    if (all.length < 2) return false;
+    const solvent = all.filter(p => p.money > 0);
+    if (solvent.length !== 1) return false;
+    const w    = solvent[0];
+    const wIdx = all.findIndex(p => p.id === w.id);
+    const standings = [...all]
+      .sort((a, b) => b.money - a.money)
+      .map(p => ({
+        name:  p.name,
+        money: p.money,
+        shots: p.shots_owed,
+        emoji: PLAYER_EMOJIS[all.findIndex(pl => pl.id === p.id) % PLAYER_EMOJIS.length],
+      }));
+    setModal({
+      kind: 'winner',
+      winnerName:     w.name,
+      winnerEmoji:    PLAYER_EMOJIS[wIdx >= 0 ? wIdx % PLAYER_EMOJIS.length : 0],
+      finalStandings: standings,
+    });
+    return true;
+  }
+
   // ── exit game ────────────────────────────────────────────────────────────────
 
   async function exitGame() {
@@ -493,13 +555,20 @@ export default function GameScreen() {
 
   async function advanceTurn() {
     if (!gameState) return;
-    // Fetch fresh players so rotation is never based on stale state
     const rid = roomIdRef.current ?? gameState.room_id;
     const { data: freshPs } = await supabase
       .from('players').select().eq('room_id', rid).order('created_at', { ascending: true });
     const all = freshPs ?? players;
-    const ci  = all.findIndex(p => p.id === gameState.current_player_id);
-    const next = all[(ci + 1) % all.length];
+
+    if (checkWinner(all)) return;
+
+    // Skip bankrupt players (money <= 0)
+    const ci = all.findIndex(p => p.id === gameState.current_player_id);
+    let nextIdx = (ci + 1) % all.length;
+    for (let attempts = 0; attempts < all.length && all[nextIdx].money <= 0; attempts++) {
+      nextIdx = (nextIdx + 1) % all.length;
+    }
+    const next = all[nextIdx];
     const nextGs: GameState = {
       ...gameState,
       current_player_id: next.id,
@@ -628,6 +697,7 @@ export default function GameScreen() {
         currentPlayerId={gameState.current_player_id}
         myPlayerId={myPlayer?.id ?? null}
         propLevels={propLevels}
+        onDrink={handleDrinkShot}
       />
 
       <View style={{ height: DICE_H }} />
@@ -757,7 +827,15 @@ export default function GameScreen() {
                     </View>
                   </>
                 )}
-                <TouchableOpacity style={[gs.btnGhost, { marginTop: 12 }]} onPress={advanceTurn}>
+                <TouchableOpacity
+                  style={[gs.btnGhost, { marginTop: 12, borderColor: '#E94560' }]}
+                  onPress={() => handleSell(space.position)}
+                >
+                  <Text style={[gs.btnGhostTxt, { color: '#E94560' }]}>
+                    Vender — {formatMoney(Math.floor((space.price ?? 0) * 0.5))}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[gs.btnGhost, { marginTop: 8 }]} onPress={advanceTurn}>
                   <Text style={gs.btnGhostTxt}>Continuar</Text>
                 </TouchableOpacity>
               </View>
@@ -781,6 +859,52 @@ export default function GameScreen() {
               }}>
                 <Text style={gs.btnGoldTxt}>Ok, entendido</Text>
               </TouchableOpacity>
+            </View>
+          </View>
+        )}
+      </Modal>
+
+      {/* ── JAIL CHOICE ── */}
+      <Modal visible={modal?.kind === 'jail_choice'} transparent animationType="slide">
+        {modal?.kind === 'jail_choice' && (
+          <View style={gs.overlay}>
+            <View style={gs.mCard}>
+              <Text style={gs.mTitle}>🔒 Estás na Cadeia</Text>
+              <Text style={gs.mDetail}>
+                {myPlayer ? `${myPlayer.jail_turns ?? 0} ronda${(myPlayer.jail_turns ?? 0) !== 1 ? 's' : ''} restante${(myPlayer.jail_turns ?? 0) !== 1 ? 's' : ''}` : ''}
+              </Text>
+              <View style={gs.mRow}>
+                <TouchableOpacity style={gs.btnMoney} onPress={() => handleJailChoice(true)}>
+                  <Text style={gs.btnTxt}>💸 Pagar Caução{'\n'}€50k e jogar agora</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={gs.btnShots} onPress={() => handleJailChoice(false)}>
+                  <Text style={gs.btnTxt}>⏭ Saltar{'\n'}esta ronda</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
+      </Modal>
+
+      {/* ── WINNER ── */}
+      <Modal visible={modal?.kind === 'winner'} transparent animationType="fade">
+        {modal?.kind === 'winner' && (
+          <View style={gs.notifOverlay}>
+            <View style={[gs.notifCard, { borderColor: C.gold + '88' }]}>
+              <View style={[gs.notifAccent, { backgroundColor: C.gold }]} />
+              <View style={gs.notifBody}>
+                <Text style={{ fontSize: 48, textAlign: 'center' }}>{modal.winnerEmoji}</Text>
+                <Text style={[gs.notifTitle, { color: C.gold, fontSize: 18 }]}>🏆 {modal.winnerName} ganhou!</Text>
+                {modal.finalStandings.map((s, i) => (
+                  <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
+                    <Text style={{ color: i === 0 ? C.gold : C.textDim, fontSize: 14 }}>{s.emoji} {s.name}</Text>
+                    <Text style={{ color: C.textDim, fontSize: 13 }}>{formatMoney(s.money)}  🥃×{s.shots}</Text>
+                  </View>
+                ))}
+                <TouchableOpacity style={[gs.notifBtn, { backgroundColor: C.gold, marginTop: 24 }]} onPress={exitGame}>
+                  <Text style={[gs.notifBtnTxt, { color: '#1a1409' }]}>Voltar ao Início</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         )}
