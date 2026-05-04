@@ -28,6 +28,7 @@ import {
   getLeveledSips,
 } from '../../constants/gameConstants';
 import { initSounds, playSound } from '../../lib/sounds';
+import { getLocale, t, getEventMessage } from '../../lib/i18n';
 
 // ── modal union ───────────────────────────────────────────────────────────────
 
@@ -46,6 +47,7 @@ type ModalType =
 export default function GameScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const locale = getLocale();
   const { width: sw, height: sh } = useWindowDimensions();
   const insets = useSafeAreaInsets();
 
@@ -264,12 +266,12 @@ export default function GameScreen() {
       if (passedGo) {
         playSound('go');
         notifContinuationRef.current = () => resolveSpace(space, newPos, freshMoney);
-        setModal({ kind: 'notification', title: '🎯 GO!', message: `Passaste pelo GO!\nRecebes €200k.`, accentColor: C.gold });
+        setModal({ kind: 'notification', title: t('go_title', locale), message: t('go_msg', locale), accentColor: C.gold });
       } else {
         await resolveSpace(space, newPos, freshMoney);
       }
     } catch (err: any) {
-      showNotification('Erro', err.message, '#E94560');
+      showNotification(t('err_title', locale), err.message, '#E94560');
     } finally {
       setRolling(false);
       setAnimPositions({});
@@ -285,21 +287,22 @@ export default function GameScreen() {
     if (space.type === 'go_to_jail') {
       await supabase.from('players').update({ position: 7, jail_turns: 3 }).eq('id', myPlayer.id);
       playSound('jail');
-      showNotification('🚔 Preso!', 'Foste direto para a Cadeia.\nSaltas as próximas 3 rondas.', '#FF6BD0');
+      showNotification(t('arrested_title', locale), t('arrested_msg', locale), '#FF6BD0');
       notifContinuationRef.current = advanceTurn;
       return;
     }
     if (space.type === 'tax') {
       const tax = space.taxAmount ?? 100000;
       await supabase.from('players').update({ money: Math.max(0, currentMoney - tax) }).eq('id', myPlayer.id);
-      showNotification('Imposto', `Pagaste ${formatMoney(tax)} de imposto.`, '#5A6378');
+      showNotification(t('tax_title', locale), t('tax_msg', locale, { tax: formatMoney(tax) }), '#5A6378');
       notifContinuationRef.current = advanceTurn;
       return;
     }
     if (space.type === 'event') {
       const card = drawEventCard();
       playSound('card');
-      setModal({ kind: 'event', message: card.message, effect: card.effect, currentMoney });
+      const msg = getEventMessage(card.effect, locale) ?? card.message;
+      setModal({ kind: 'event', message: msg, effect: card.effect, currentMoney });
       return;
     }
     if (space.type === 'property') {
@@ -458,7 +461,7 @@ export default function GameScreen() {
     setModal(null);
     if (bail) {
       if (myPlayer.money < 50000) {
-        showNotification('Sem fundos', 'Não tens €50k para pagar a caução.', '#5A6378');
+        showNotification(t('no_funds_title', locale), t('no_bail_funds', locale), '#5A6378');
         return;
       }
       await supabase.from('players').update({ money: myPlayer.money - 50000, jail_turns: 0 }).eq('id', myPlayer.id);
@@ -469,11 +472,11 @@ export default function GameScreen() {
       const { data: fresh } = await supabase.from('players').select('jail_turns').eq('id', myPlayer.id).single();
       const remaining = Math.max(0, (fresh?.jail_turns ?? 0) - 1);
       await supabase.from('players').update({ jail_turns: remaining }).eq('id', myPlayer.id);
-      const msg = remaining > 0
-        ? `Ainda ${remaining} ronda${remaining !== 1 ? 's' : ''} na cadeia.`
-        : 'Liberto! Podes jogar na próxima ronda.';
+      const jailMsg = remaining > 0
+        ? t('jail_still', locale, { n: remaining, s: remaining !== 1 ? 's' : '' })
+        : t('jail_freed', locale);
       playSound('jail');
-      showNotification('🔒 Na Cadeia', msg, '#FF6BD0');
+      showNotification(t('jail_title_notif', locale), jailMsg, '#FF6BD0');
       notifContinuationRef.current = advanceTurn;
     }
   }
@@ -628,13 +631,13 @@ export default function GameScreen() {
     const currentProps = (fresh?.properties as number[] | null) ?? (myPlayer.properties as number[] ?? []);
 
     if (option === 'full') {
-      if (currentMoney < fullPrice) { showNotification('Sem fundos', 'Não tens saldo suficiente.', '#5A6378'); return; }
+      if (currentMoney < fullPrice) { showNotification(t('no_funds_title', locale), t('no_funds_msg', locale), '#5A6378'); return; }
       await supabase.from('players').update({
         money: currentMoney - fullPrice,
         properties: [...currentProps, space.position],
       }).eq('id', myPlayer.id);
     } else {
-      if (currentMoney < discountedPrice) { showNotification('Sem fundos', 'Não tens saldo suficiente.', '#5A6378'); return; }
+      if (currentMoney < discountedPrice) { showNotification(t('no_funds_title', locale), t('no_funds_msg', locale), '#5A6378'); return; }
       await supabase.from('players').update({
         money: currentMoney - discountedPrice,
         shots_owed: currentShots + sips,
@@ -651,7 +654,7 @@ export default function GameScreen() {
     const currentLevel = propLevels[String(position)] ?? 1;
     if (currentLevel >= 3) return;
     const cost = UPGRADE_COST[currentLevel];
-    if (myPlayer.money < cost) { showNotification('Sem fundos', 'Não tens saldo suficiente para fazer upgrade.', '#5A6378'); return; }
+    if (myPlayer.money < cost) { showNotification(t('no_funds_title', locale), t('no_funds_msg', locale), '#5A6378'); return; }
     const newLevels = { ...propLevels, [String(position)]: currentLevel + 1 };
     await supabase.from('game_states').update({ property_levels: newLevels }).eq('id', gameState.id);
     await supabase.from('players').update({ money: myPlayer.money - cost }).eq('id', myPlayer.id);
@@ -686,10 +689,10 @@ export default function GameScreen() {
   return (
     <View style={gs.screen}>
       <View style={gs.header}>
-        <Text style={gs.headerSub}>Sala #{roomCode} · Rodada {gameState.turn_number}</Text>
+        <Text style={gs.headerSub}>{t('room_round', locale, { code: roomCode, n: gameState.turn_number })}</Text>
         <Text style={gs.headerTitle}>SHOTOPOLY</Text>
         <TouchableOpacity style={gs.exitBtn} onPress={exitGame}>
-          <Text style={gs.exitTxt}>Sair</Text>
+          <Text style={gs.exitTxt}>{t('exit', locale)}</Text>
         </TouchableOpacity>
       </View>
 
@@ -723,7 +726,7 @@ export default function GameScreen() {
       <View style={[gs.diceWrap, { paddingBottom: insets.bottom + 8 }]}>
         {!isMyTurn && idleSeconds >= 60 && (
           <TouchableOpacity style={[gs.diceBtn, { backgroundColor: '#E94560', marginBottom: 6 }]} onPress={skipIdleTurn}>
-            <Text style={[gs.diceTxt, { color: '#fff' }]}>⏭ Saltar vez de {currentPlayer?.name ?? '…'}</Text>
+            <Text style={[gs.diceTxt, { color: '#fff' }]}>{t('skip_idle', locale, { name: currentPlayer?.name ?? '…' })}</Text>
           </TouchableOpacity>
         )}
         <TouchableOpacity
@@ -739,10 +742,10 @@ export default function GameScreen() {
             ? <ActivityIndicator color={isMyTurn && !isJailed ? '#1a1409' : C.textFaint} />
             : isJailed
               ? <Text style={[gs.diceTxt, { color: C.textFaint }]}>
-                  🔒 Na cadeia — {myJailTurns} ronda{myJailTurns !== 1 ? 's' : ''} restante{myJailTurns !== 1 ? 's' : ''}
+                  {t('in_jail', locale, { n: myJailTurns })}
                 </Text>
               : <Text style={[gs.diceTxt, !isMyTurn && { color: C.textFaint }]}>
-                  {isMyTurn ? '🎲 Lançar Dados' : `Vez de ${currentPlayer?.name ?? '…'}`}
+                  {isMyTurn ? t('roll_dice', locale) : t('not_your_turn', locale, { name: currentPlayer?.name ?? '…' })}
                 </Text>
           }
         </TouchableOpacity>
@@ -763,10 +766,10 @@ export default function GameScreen() {
           return (
             <View style={gs.overlay}>
               <View style={gs.mCard}>
-                <Text style={gs.mTitle}>Propriedade à Venda</Text>
+                <Text style={gs.mTitle}>{t('buy_title', locale)}</Text>
                 {modal.space.color && <View style={[gs.colorBar, { backgroundColor: modal.space.color }]} />}
                 <Text style={gs.mName}>{modal.space.name}</Text>
-                <Text style={gs.mDetail}>Renda base: {formatMoney(modal.space.rent ?? 0)}</Text>
+                <Text style={gs.mDetail}>{t('buy_rent', locale, { rent: formatMoney(modal.space.rent ?? 0) })}</Text>
                 <View style={gs.mRow}>
                   <TouchableOpacity style={gs.btnShots} onPress={() => handleBuyOption('discount')}>
                     <Text style={gs.btnTxt}>💸 {formatMoney(discountedPrice)}{'\n'}+ {sips} shots</Text>
@@ -776,7 +779,7 @@ export default function GameScreen() {
                   </TouchableOpacity>
                 </View>
                 <TouchableOpacity style={[gs.btnGhost, { marginTop: 12 }]} onPress={() => handleBuyOption('pass')}>
-                  <Text style={gs.btnGhostTxt}>Passar</Text>
+                  <Text style={gs.btnGhostTxt}>{t('buy_pass', locale)}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -791,17 +794,17 @@ export default function GameScreen() {
           return (
             <View style={gs.overlay}>
               <View style={gs.mCard}>
-                <Text style={gs.mTitle}>Propriedade Ocupada</Text>
+                <Text style={gs.mTitle}>{t('rent_title', locale)}</Text>
                 {modal.space.color && <View style={[gs.colorBar, { backgroundColor: modal.space.color }]} />}
                 <Text style={gs.mName}>{modal.space.name}</Text>
-                <Text style={gs.mSub}>Pertence a {modal.ownerName}</Text>
-                <Text style={gs.mDetail}>Como queres pagar a renda?</Text>
+                <Text style={gs.mSub}>{t('rent_owner', locale, { name: modal.ownerName })}</Text>
+                <Text style={gs.mDetail}>{t('rent_question', locale)}</Text>
                 <View style={gs.mRow}>
                   <TouchableOpacity style={gs.btnMoney} onPress={() => handlePayRent('full')}>
-                    <Text style={gs.btnTxt}>💰 Pagar renda{'\n'}{formatMoney(modal.leveledRent)}</Text>
+                    <Text style={gs.btnTxt}>{t('pay_full', locale, { rent: formatMoney(modal.leveledRent) })}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={gs.btnShots} onPress={() => handlePayRent('discount')}>
-                    <Text style={gs.btnTxt}>🥃 {formatMoney(discountedRent)}{'\n'}+ {modal.leveledSips} shot{modal.leveledSips !== 1 ? 's' : ''}</Text>
+                    <Text style={gs.btnTxt}>{t('pay_shots', locale, { rent: formatMoney(discountedRent), n: modal.leveledSips, s: modal.leveledSips !== 1 ? 's' : '' })}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -821,7 +824,7 @@ export default function GameScreen() {
           return (
             <View style={gs.overlay}>
               <View style={gs.mCard}>
-                <Text style={gs.mTitle}>A tua propriedade</Text>
+                <Text style={gs.mTitle}>{t('upgrade_title', locale)}</Text>
                 {space.color && <View style={[gs.colorBar, { backgroundColor: space.color }]} />}
                 <Text style={gs.mName}>{space.name}</Text>
                 <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 12 }}>
@@ -831,20 +834,20 @@ export default function GameScreen() {
                 </View>
                 {level >= 3 ? (
                   <>
-                    <Text style={[gs.mDetail, { color: C.green }]}>Nível máximo!</Text>
-                    <Text style={gs.mDetail}>Renda: {formatMoney((space.rent ?? 0) * level)}</Text>
+                    <Text style={[gs.mDetail, { color: C.green }]}>{t('upgrade_max', locale)}</Text>
+                    <Text style={gs.mDetail}>{t('upgrade_rent_cur', locale, { rent: formatMoney((space.rent ?? 0) * level) })}</Text>
                   </>
                 ) : (
                   <>
-                    <Text style={gs.mDetail}>Renda atual: {formatMoney((space.rent ?? 0) * level)}</Text>
-                    <Text style={gs.mDetail}>Após upgrade: {formatMoney(newRent)}</Text>
+                    <Text style={gs.mDetail}>{t('upgrade_rent_cur', locale, { rent: formatMoney((space.rent ?? 0) * level) })}</Text>
+                    <Text style={gs.mDetail}>{t('upgrade_rent_new', locale, { rent: formatMoney(newRent) })}</Text>
                     <View style={gs.mRow}>
                       <TouchableOpacity
                         style={canUpgrade ? gs.btnMoney : [gs.btnGhost, { flex: 1, opacity: 0.5 }]}
                         onPress={canUpgrade ? () => handleUpgrade(space.position) : undefined}
                       >
                         <Text style={canUpgrade ? gs.btnTxt : gs.btnGhostTxt}>
-                          {canUpgrade ? `Upgrade — ${formatMoney(cost)}` : 'Sem fundos'}
+                          {canUpgrade ? t('upgrade_btn', locale, { cost: formatMoney(cost) }) : t('upgrade_no_funds', locale)}
                         </Text>
                       </TouchableOpacity>
                     </View>
@@ -855,11 +858,11 @@ export default function GameScreen() {
                   onPress={() => handleSell(space.position)}
                 >
                   <Text style={[gs.btnGhostTxt, { color: '#E94560' }]}>
-                    Vender — {formatMoney(Math.floor((space.price ?? 0) * 0.5))}
+                    {t('sell_btn', locale, { price: formatMoney(Math.floor((space.price ?? 0) * 0.5)) })}
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[gs.btnGhost, { marginTop: 8 }]} onPress={advanceTurn}>
-                  <Text style={gs.btnGhostTxt}>Continuar</Text>
+                  <Text style={gs.btnGhostTxt}>{t('continue_btn', locale)}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -873,14 +876,14 @@ export default function GameScreen() {
         {modal?.kind === 'event' && (
           <View style={gs.overlay}>
             <View style={gs.mCard}>
-              <Text style={gs.mTitle}>Carta de Evento</Text>
+              <Text style={gs.mTitle}>{t('event_title', locale)}</Text>
               <Text style={gs.eventMsg}>{modal.message}</Text>
               <TouchableOpacity style={gs.btnGold} onPress={() => {
                 const { effect, currentMoney } = modal;
                 setModal(null);
                 applyEventEffect(effect, currentMoney);
               }}>
-                <Text style={gs.btnGoldTxt}>Ok, entendido</Text>
+                <Text style={gs.btnGoldTxt}>{t('event_ok', locale)}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -892,16 +895,16 @@ export default function GameScreen() {
         {modal?.kind === 'jail_choice' && (
           <View style={gs.overlay}>
             <View style={gs.mCard}>
-              <Text style={gs.mTitle}>🔒 Estás na Cadeia</Text>
+              <Text style={gs.mTitle}>{t('jail_title', locale)}</Text>
               <Text style={gs.mDetail}>
-                {myPlayer ? `${myPlayer.jail_turns ?? 0} ronda${(myPlayer.jail_turns ?? 0) !== 1 ? 's' : ''} restante${(myPlayer.jail_turns ?? 0) !== 1 ? 's' : ''}` : ''}
+                {myPlayer ? t('jail_rounds', locale, { n: myPlayer.jail_turns ?? 0 }) : ''}
               </Text>
               <View style={gs.mRow}>
                 <TouchableOpacity style={gs.btnMoney} onPress={() => handleJailChoice(true)}>
-                  <Text style={gs.btnTxt}>💸 Pagar Caução{'\n'}€50k e jogar agora</Text>
+                  <Text style={gs.btnTxt}>{t('jail_bail', locale)}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={gs.btnShots} onPress={() => handleJailChoice(false)}>
-                  <Text style={gs.btnTxt}>⏭ Saltar{'\n'}esta ronda</Text>
+                  <Text style={gs.btnTxt}>{t('jail_skip', locale)}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -917,7 +920,7 @@ export default function GameScreen() {
               <View style={[gs.notifAccent, { backgroundColor: C.gold }]} />
               <View style={gs.notifBody}>
                 <Text style={{ fontSize: 48, textAlign: 'center' }}>{modal.winnerEmoji}</Text>
-                <Text style={[gs.notifTitle, { color: C.gold, fontSize: 18 }]}>🏆 {modal.winnerName} ganhou!</Text>
+                <Text style={[gs.notifTitle, { color: C.gold, fontSize: 18 }]}>{t('winner_title', locale, { name: modal.winnerName })}</Text>
                 {modal.finalStandings.map((s, i) => (
                   <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
                     <Text style={{ color: i === 0 ? C.gold : C.textDim, fontSize: 14 }}>{s.emoji} {s.name}</Text>
@@ -925,7 +928,7 @@ export default function GameScreen() {
                   </View>
                 ))}
                 <TouchableOpacity style={[gs.notifBtn, { backgroundColor: C.gold, marginTop: 24 }]} onPress={exitGame}>
-                  <Text style={[gs.notifBtnTxt, { color: '#1a1409' }]}>Voltar ao Início</Text>
+                  <Text style={[gs.notifBtnTxt, { color: '#1a1409' }]}>{t('back_home', locale)}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -966,8 +969,8 @@ const gs = StyleSheet.create({
   header:      { alignItems: 'center', paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 },
   headerSub:   { fontSize: 9, color: C.textFaint, letterSpacing: 1.5, textTransform: 'uppercase' },
   headerTitle: { fontSize: 15, fontWeight: '700', color: C.gold, letterSpacing: 0.3 },
-  exitBtn:     { position: 'absolute', right: 16, top: 8, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.06)' },
-  exitTxt:     { fontSize: 11, color: C.textFaint, fontWeight: '600' },
+  exitBtn:     { position: 'absolute', right: 16, top: 8, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, backgroundColor: '#E94560' },
+  exitTxt:     { fontSize: 11, color: '#fff', fontWeight: '700' },
 
   rollStrip: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingTop: 4 },
   rollNum:   { color: '#fff', fontSize: 17, fontWeight: '800' },

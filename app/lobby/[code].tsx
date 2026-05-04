@@ -12,12 +12,14 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../lib/supabase';
+import { getLocale, t } from '../../lib/i18n';
 import { Player, Room } from '../../lib/types';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 export default function LobbyScreen() {
   const { code } = useLocalSearchParams<{ code: string }>();
   const router = useRouter();
+  const locale = getLocale();
 
   const [room, setRoom] = useState<Room | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
@@ -48,7 +50,7 @@ export default function LobbyScreen() {
       if (roomErr) { console.error('[lobby] rooms query failed:', roomErr.message); }
 
       if (!roomData) {
-        showAlert('Erro', 'Sala não encontrada.');
+        showAlert(t('err_title', locale), t('err_room_lobby', locale));
         router.replace('/');
         return;
       }
@@ -127,7 +129,7 @@ export default function LobbyScreen() {
   async function startGame() {
     if (!room) return;
     if (players.length < 1) {
-      showAlert('Sem jogadores', 'Precisas de pelo menos 1 jogador para começar.');
+      showAlert(t('err_title', locale), t('wait_min', locale));
       return;
     }
     setStarting(true);
@@ -165,14 +167,14 @@ export default function LobbyScreen() {
 
       router.replace(`/game/${gs.id}`);
     } catch (err: any) {
-      showAlert('Erro', err.message ?? 'Não foi possível iniciar o jogo.');
+      showAlert(t('err_title', locale), err.message ?? t('err_generic', locale));
     } finally {
       setStarting(false);
     }
   }
 
   async function shareCode() {
-    await Share.share({ message: `Junta-te ao meu Shotopoly! Código: ${code}` });
+    await Share.share({ message: t('share_msg', locale, { code: code ?? '' }) });
   }
 
   if (loading) {
@@ -189,15 +191,15 @@ export default function LobbyScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.codeBox}>
-        <Text style={styles.codeLabel}>Código da Sala</Text>
+        <Text style={styles.codeLabel}>{t('room_code', locale)}</Text>
         <Text style={styles.codeText}>{code}</Text>
         <TouchableOpacity style={styles.shareBtn} onPress={shareCode}>
-          <Text style={styles.shareBtnText}>📤 Partilhar</Text>
+          <Text style={styles.shareBtnText}>{t('share', locale)}</Text>
         </TouchableOpacity>
       </View>
 
       <Text style={styles.sectionTitle}>
-        Jogadores ({players.length})
+        {t('players_n', locale, { n: players.length })}
       </Text>
 
       <FlatList
@@ -214,12 +216,12 @@ export default function LobbyScreen() {
             <Text style={styles.playerName}>{item.name}</Text>
             {item.is_host && <Text style={styles.hostBadge}>👑 Host</Text>}
             {item.id === myPlayer?.id && (
-              <Text style={styles.youBadge}>tu</Text>
+              <Text style={styles.youBadge}>{t('you_badge', locale)}</Text>
             )}
           </View>
         )}
         ListEmptyComponent={
-          <Text style={styles.emptyText}>Nenhum jogador ainda…</Text>
+          <Text style={styles.emptyText}>{t('no_players', locale)}</Text>
         }
       />
 
@@ -234,14 +236,14 @@ export default function LobbyScreen() {
               <ActivityIndicator color="#1a0a2e" />
             ) : (
               <Text style={styles.startBtnText}>
-                {canStart ? '▶️ Começar Jogo' : `⏳ Aguarda (mín. 1)`}
+                {canStart ? t('start_game', locale) : t('wait_min', locale)}
               </Text>
             )}
           </TouchableOpacity>
         ) : (
           <View style={styles.waitingBox}>
             <ActivityIndicator color="#f5c518" style={{ marginRight: 10 }} />
-            <Text style={styles.waitingText}>A aguardar que o host inicie…</Text>
+            <Text style={styles.waitingText}>{t('waiting_host', locale)}</Text>
           </View>
         )}
       </View>

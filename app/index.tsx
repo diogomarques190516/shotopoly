@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { generateRoomCode } from '../lib/gameLogic';
+import { getLocale, t } from '../lib/i18n';
 
 const RULES_SECTIONS = [
   {
@@ -65,6 +66,7 @@ const RULES_SECTIONS = [
 
 export default function HomeScreen() {
   const router = useRouter();
+  const locale = getLocale();
   const [playerName, setPlayerName] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [loading, setLoading] = useState(false);
@@ -117,7 +119,7 @@ export default function HomeScreen() {
 
   async function createGame() {
     if (!playerName.trim()) {
-      showAlert('Ops!', 'Insira o seu nome antes de criar um jogo.');
+      showAlert('Ops!', t('err_name', locale));
       return;
     }
     setLoading(true);
@@ -151,7 +153,7 @@ export default function HomeScreen() {
 
       router.push(`/lobby/${code}`);
     } catch (err: any) {
-      showAlert('Erro', err.message ?? 'Não foi possível criar o jogo.');
+      showAlert(t('err_title', locale), err.message ?? t('err_generic', locale));
     } finally {
       setLoading(false);
     }
@@ -159,11 +161,11 @@ export default function HomeScreen() {
 
   async function joinGame() {
     if (!playerName.trim()) {
-      showAlert('Ops!', 'Insira o seu nome antes de entrar.');
+      showAlert('Ops!', t('err_name_join', locale));
       return;
     }
     if (!joinCode.trim()) {
-      showAlert('Ops!', 'Insira o código da sala.');
+      showAlert('Ops!', t('err_code', locale));
       return;
     }
     setLoading(true);
@@ -178,7 +180,7 @@ export default function HomeScreen() {
         .single();
 
       if (roomError || !room) {
-        showAlert('Sala não encontrada', 'Código inválido ou o jogo já começou.');
+        showAlert(t('err_title', locale), t('err_room', locale));
         return;
       }
 
@@ -190,7 +192,7 @@ export default function HomeScreen() {
         .eq('name', playerName.trim())
         .maybeSingle();
       if (existing) {
-        showAlert('Nome em uso', 'Este nome já está em uso, escolhe outro.');
+        showAlert(t('err_title', locale), t('err_name_taken', locale));
         return;
       }
 
@@ -213,7 +215,7 @@ export default function HomeScreen() {
 
       router.push(`/lobby/${code}`);
     } catch (err: any) {
-      showAlert('Erro', err.message ?? 'Não foi possível entrar no jogo.');
+      showAlert(t('err_title', locale), err.message ?? t('err_generic', locale));
     } finally {
       setLoading(false);
     }
@@ -228,14 +230,14 @@ export default function HomeScreen() {
         <View style={styles.header}>
           <Text style={styles.title}>SHOTOPOLY</Text>
           <Text style={styles.emoji}>🥃</Text>
-          <Text style={styles.subtitle}>O Monopólio do Bebedor</Text>
+          <Text style={styles.subtitle}>{t('subtitle', locale)}</Text>
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.label}>O teu nome</Text>
+          <Text style={styles.label}>{t('your_name_label', locale)}</Text>
           <TextInput
             style={styles.input}
-            placeholder="Como te chamas?"
+            placeholder={t('your_name_ph', locale)}
             placeholderTextColor="#555"
             value={playerName}
             onChangeText={setPlayerName}
@@ -250,22 +252,22 @@ export default function HomeScreen() {
             {loading ? (
               <ActivityIndicator color="#1a0a2e" />
             ) : (
-              <Text style={styles.btnPrimaryText}>Criar Jogo</Text>
+              <Text style={styles.btnPrimaryText}>{t('create_game', locale)}</Text>
             )}
           </TouchableOpacity>
         </View>
 
         <View style={styles.dividerRow}>
           <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>ou entra numa sala</Text>
+          <Text style={styles.dividerText}>{t('or_join', locale)}</Text>
           <View style={styles.dividerLine} />
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.label}>Código da sala</Text>
+          <Text style={styles.label}>{t('room_code_label', locale)}</Text>
           <TextInput
             style={[styles.input, styles.codeInput]}
-            placeholder="Ex: XKQZ"
+            placeholder={t('room_code_ph', locale)}
             placeholderTextColor="#555"
             value={joinCode}
             onChangeText={setJoinCode}
@@ -281,25 +283,25 @@ export default function HomeScreen() {
             {loading ? (
               <ActivityIndicator color="#f5c518" />
             ) : (
-              <Text style={styles.btnSecondaryText}>Entrar</Text>
+              <Text style={styles.btnSecondaryText}>{t('join_game', locale)}</Text>
             )}
           </TouchableOpacity>
         </View>
 
         <TouchableOpacity style={styles.rulesBtn} onPress={() => setRulesVisible(true)}>
-          <Text style={styles.rulesBtnText}>Regras do Jogo</Text>
+          <Text style={styles.rulesBtnText}>{t('rules_btn', locale)}</Text>
         </TouchableOpacity>
 
-        <Text style={styles.footer}>Joga com responsabilidade</Text>
+        <Text style={styles.footer}>{t('footer', locale)}</Text>
       </ScrollView>
 
       {/* Rules Modal */}
       <Modal visible={rulesVisible} animationType="slide" onRequestClose={() => setRulesVisible(false)}>
         <View style={styles.rulesContainer}>
           <View style={styles.rulesHeader}>
-            <Text style={styles.rulesTitle}>Regras</Text>
+            <Text style={styles.rulesTitle}>{t('rules_title', locale)}</Text>
             <TouchableOpacity style={styles.rulesClose} onPress={() => setRulesVisible(false)}>
-              <Text style={styles.rulesCloseTxt}>Fechar</Text>
+              <Text style={styles.rulesCloseTxt}>{t('rules_close', locale)}</Text>
             </TouchableOpacity>
           </View>
           <ScrollView contentContainerStyle={styles.rulesScroll} showsVerticalScrollIndicator={false}>
