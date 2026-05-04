@@ -67,12 +67,14 @@ export default function GameScreen() {
   const [landedSpace,   setLandedSpace]   = useState<BoardSpace | null>(null);
   const [loading,       setLoading]       = useState(true);
   const [animPositions, setAnimPositions] = useState<Record<string, number>>({});
+  const [idleSeconds,   setIdleSeconds]   = useState(0);
 
   const channelsRef            = useRef<RealtimeChannel[]>([]);
   const myPlayerIdRef          = useRef<string | null>(null);
   const roomIdRef              = useRef<string | null>(null);
   const notifContinuationRef   = useRef<(() => void) | null>(null);
   const processedJailTurnRef   = useRef<number | null>(null);
+  const idleTimerRef           = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     initSounds();
@@ -92,6 +94,22 @@ export default function GameScreen() {
     processedJailTurnRef.current = gameState.turn_number;
     setModal({ kind: 'jail_choice' });
   }, [gameState, myPlayer]);
+
+  // Idle-turn timer: counts up while it's not my turn; resets on turn change
+  useEffect(() => {
+    if (idleTimerRef.current) clearInterval(idleTimerRef.current);
+    setIdleSeconds(0);
+    if (!gameState) return;
+    const isMine = gameState.current_player_id === myPlayer?.id;
+    if (isMine) return; // no timer needed — it's my turn
+    idleTimerRef.current = setInterval(() => setIdleSeconds(s => s + 1), 1000);
+    return () => { if (idleTimerRef.current) clearInterval(idleTimerRef.current); };
+  }, [gameState?.turn_number, gameState?.current_player_id]);
+
+  async function skipIdleTurn() {
+    setIdleSeconds(0);
+    await advanceTurn();
+  }
 
   async function loadGame() {
     try {
@@ -703,6 +721,11 @@ export default function GameScreen() {
       <View style={{ height: DICE_H }} />
 
       <View style={[gs.diceWrap, { paddingBottom: insets.bottom + 8 }]}>
+        {!isMyTurn && idleSeconds >= 60 && (
+          <TouchableOpacity style={[gs.diceBtn, { backgroundColor: '#E94560', marginBottom: 6 }]} onPress={skipIdleTurn}>
+            <Text style={[gs.diceTxt, { color: '#fff' }]}>⏭ Saltar vez de {currentPlayer?.name ?? '…'}</Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity
           style={[gs.diceBtn, (!isMyTurn || isJailed) && gs.diceDim]}
           onPress={() => {
