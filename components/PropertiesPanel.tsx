@@ -2,6 +2,7 @@ import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { Player, BoardSpace } from '../lib/types';
 import { ALL_SPACES } from '../lib/gameLogic';
 import { C, PLAYER_COLORS, PLAYER_EMOJIS, formatMoney } from '../constants/gameConstants';
+import { getLocale, getSpaceName } from '../lib/i18n';
 
 export function PropertiesPanel({ players, currentPlayerId, myPlayerId, propLevels, onDrink }: {
   players: Player[];
@@ -82,7 +83,7 @@ export function PropertiesPanel({ players, currentPlayerId, myPlayerId, propLeve
                       }}>
                         <View style={{ height: 2, borderRadius: 1, backgroundColor: space.color ?? color, marginBottom: 3 }} />
                         <Text style={{ color: C.text, fontSize: 7.5, fontWeight: '700', lineHeight: 10 }} numberOfLines={2}>
-                          {space.name}
+                          {getSpaceName(space.name, getLocale())}
                         </Text>
                         <View style={{ flexDirection: 'row', gap: 2, marginTop: 3 }}>
                           {[1, 2, 3].map(l => (

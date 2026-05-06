@@ -3,6 +3,7 @@ import { View, Text, ScrollView } from 'react-native';
 import { Player, BoardSpace } from '../lib/types';
 import { ALL_SPACES } from '../lib/gameLogic';
 import { C, formatMoney } from '../constants/gameConstants';
+import { getLocale, getSpaceName } from '../lib/i18n';
 
 export function MyPropertiesSection({ player, propLevels }: {
   player: Player | null;
@@ -32,7 +33,7 @@ export function MyPropertiesSection({ player, propLevels }: {
             return (
               <View key={space.position} style={{ width: 100, borderRadius: 12, backgroundColor: '#151a2e', borderWidth: 1, borderColor: space.color ?? '#333', padding: 9 }}>
                 <View style={{ height: 3, borderRadius: 2, backgroundColor: space.color ?? '#555', marginBottom: 7 }} />
-                <Text style={{ color: C.text, fontSize: 10, fontWeight: '700', marginBottom: 5 }} numberOfLines={1}>{space.name}</Text>
+                <Text style={{ color: C.text, fontSize: 10, fontWeight: '700', marginBottom: 5 }} numberOfLines={1}>{getSpaceName(space.name, getLocale())}</Text>
                 <View style={{ flexDirection: 'row', gap: 4, marginBottom: 5 }}>
                   {[1, 2, 3].map(l => (
                     <View key={l} style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: l <= level ? (space.color ?? C.gold) : 'rgba(255,255,255,0.1)' }} />

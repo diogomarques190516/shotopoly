@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { Player, BoardSpace } from '../lib/types';
 import { ALL_SPACES } from '../lib/gameLogic';
 import { C, PLAYER_COLORS, PLAYER_EMOJIS, formatMoney } from '../constants/gameConstants';
+import { getLocale, getSpaceName } from '../lib/i18n';
 
 type Tab = 'players' | 'money' | 'props';
 
@@ -107,7 +108,7 @@ export function PlayerPanel({ players, currentPlayerId, myPlayerId, propLevels }
                   cards.push(
                     <View key={`${p.id}-${pos}`} style={{ width: 68, borderRadius: 8, backgroundColor: '#151a2e', borderWidth: 1, borderColor: space.color ?? '#333', padding: 6 }}>
                       <View style={{ height: 2, borderRadius: 1, backgroundColor: color, marginBottom: 4 }} />
-                      <Text style={{ color: C.text, fontSize: 8, fontWeight: '700' }} numberOfLines={2}>{space.name}</Text>
+                      <Text style={{ color: C.text, fontSize: 8, fontWeight: '700' }} numberOfLines={2}>{getSpaceName(space.name, getLocale())}</Text>
                       <View style={{ flexDirection: 'row', gap: 3, marginTop: 4 }}>
                         {[1, 2, 3].map(l => (
                           <View key={l} style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: l <= level ? (space.color ?? C.gold) : 'rgba(255,255,255,0.1)' }} />

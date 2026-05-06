@@ -3,6 +3,7 @@ import { View, Text } from 'react-native';
 import { Player, BoardSpace } from '../lib/types';
 import { ALL_SPACES, indexToGrid } from '../lib/gameLogic';
 import { C, PLAYER_COLORS, PLAYER_EMOJIS, CORNER_TYPES, getBandColor } from '../constants/gameConstants';
+import { getLocale, getSpaceName } from '../lib/i18n';
 
 export type TokenInfo = { id: string; color: string; emoji: string };
 
@@ -63,7 +64,7 @@ function SpaceTile({ space, side, tokens, owner, size }: {
             ? <Text style={{ fontSize: isCorner ? 20 : 12, lineHeight: isCorner ? 24 : 15 }}>{space.emoji}</Text>
             : null}
           <Text style={{ fontSize: isCorner ? 8.5 : 7.5, fontWeight: '700', color: isCorner ? C.gold : C.text, textAlign: 'center', lineHeight: isCorner ? 11 : 9.5 }} numberOfLines={2}>
-            {space.name}
+            {getSpaceName(space.name, getLocale())}
           </Text>
           {space.sub
             ? <Text style={{ fontSize: 6, color: C.textDim, lineHeight: 8 }}>{space.sub}</Text>

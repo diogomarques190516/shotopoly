@@ -648,3 +648,18 @@ export const EVENT_MESSAGES: Record<string, Partial<Record<Locale, string>>> = {
     es: 'Todos beben excepto el jugador con menos dinero. Ser pobre tiene sus ventajas.',
   },
 };
+
+// ── Board space name translations ─────────────────────────────────────────────
+// Only generic type labels need translation; club/bar proper nouns stay as-is.
+
+const SPACE_NAME_MAP: Record<string, Partial<Record<Locale, string>>> = {
+  Surpresa:    { en: 'Surprise', fr: 'Surprise', de: 'Überraschung', es: 'Sorpresa' },
+  Cadeia:      { en: 'Jail',     fr: 'Prison',   de: 'Gefängnis',    es: 'Cárcel'   },
+  Imposto:     { en: 'Tax',      fr: 'Impôt',    de: 'Steuer',       es: 'Impuesto' },
+  'Pra Cadeia':{ en: 'Go to Jail', fr: 'En Prison', de: 'Ins Gefängnis', es: 'A la Cárcel' },
+  Portal:      { en: 'Free Parking', fr: 'Parking Gratuit', de: 'Freies Parken', es: 'Aparcamiento' },
+};
+
+export function getSpaceName(name: string, locale: Locale): string {
+  return SPACE_NAME_MAP[name]?.[locale] ?? name;
+}
