@@ -16,53 +16,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { generateRoomCode } from '../lib/gameLogic';
 import { getLocale, t } from '../lib/i18n';
-
-const RULES_SECTIONS = [
-  {
-    title: 'Objetivo',
-    body: 'Acumula o máximo de dinheiro possível enquanto os teus adversários bebem. Não há condição de fim automática — o jogo acaba quando o grupo decidir. Vence quem tiver mais dinheiro no momento em que o jogo terminar.',
-  },
-  {
-    title: 'Como Começar',
-    body: 'Cria uma sala e partilha o código de 4 letras com os outros jogadores. Cada jogador entra com o seu nome. O host clica em "Começar Jogo" quando todos estiverem prontos. Cada jogador começa com €1.500k.',
-  },
-  {
-    title: 'Como Funcionam os Turnos',
-    body: 'Os jogadores jogam por ordem. No teu turno, carrega em "Lançar Dados". Dois dados são lançados e o total determina quantas casas avanças. O jogo resolve automaticamente o que acontece na casa onde caíste.',
-  },
-  {
-    title: 'Tipos de Casas',
-    body: 'GO — recebes €200k sempre que passas ou caís aqui.\n\nPropriedade — podes comprar, pagar renda ou negociar a compra ao dono.\n\nSurpresa — tiras uma carta de evento aleatória entre 50 possíveis.\n\nImposto — pagas ao banco automaticamente.\n\nCadeia — casa de visita, nada acontece.\n\nPra Cadeia — vais direto para a Cadeia.\n\nOpen Bar — casa neutra, descansa.',
-  },
-  {
-    title: 'Comprar uma Propriedade',
-    body: 'Quando caís numa propriedade sem dono tens três opções:\n\n1. Pagar o preço completo em dinheiro.\n2. Pagar 60% do preço em dinheiro e os restantes 40% em shots — desconto com bebida.\n3. Passar e não comprar.',
-  },
-  {
-    title: 'Pagar Renda',
-    body: 'Quando caís numa propriedade de outro jogador, o dono escolhe como quer cobrar:\n\nDinheiro — o valor da renda atual, que aumenta com o nível da propriedade.\n\nShots — a quantidade depende do nível da propriedade (nível 1 = 1 shot, nível 2 = 2 shots, nível 3 = 3 shots).\n\nO jogador que caiu espera enquanto o dono decide.',
-  },
-  {
-    title: 'Roubar uma Propriedade',
-    body: 'Ao cair numa propriedade de outro jogador, podes também comprá-la diretamente:\n\nPreço = 2x o preço original + €200k por cada nível de upgrade.\n\nExemplo: propriedade de €500k no nível 2 custa €1.000k + €400k = €1.400k.\n\nSe a propriedade estiver no nível máximo (3), não pode ser comprada desta forma.\n\nQuando comprada: o dinheiro vai para o dono anterior e a propriedade muda de dono mantendo o nível atual.',
-  },
-  {
-    title: 'Fazer Upgrade',
-    body: 'Quando o teu token cai na tua própria propriedade, aparece o menu de upgrade:\n\nNível 2 — custa €200k e duplica a renda.\nNível 3 (máximo) — custa €400k e triplica a renda.\n\nPodes sempre escolher continuar sem fazer upgrade. O nível de cada propriedade é visível no tabuleiro através dos indicadores coloridos.',
-  },
-  {
-    title: 'Cartas de Evento',
-    body: 'Existem 50 cartas de evento diferentes. Quando caís numa casa Surpresa, uma carta é retirada aleatoriamente. Podem acontecer muitas coisas:\n\nReceber ou pagar dinheiro ao banco, cobrar de todos os jogadores, obrigar jogadores a beber, mover o teu token, trocar posições, lançar os dados de novo, entre outras situações especiais.',
-  },
-  {
-    title: 'Shots',
-    body: 'Os shots são rastreados por jogador no contador visível em cada carta. Quando alguém deve shots, o contador sobe. Os shots bebem-se na realidade — são os outros jogadores à mesa que garantem o cumprimento.',
-  },
-  {
-    title: 'Fim do Jogo',
-    body: 'O jogo não tem fim automático. Quando o grupo decidir parar, vence quem tiver mais dinheiro. Quem tiver mais shots por beber é o rei da noite.',
-  },
-];
+import { getRulesSections } from '../lib/rules';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -305,7 +259,7 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
           <ScrollView contentContainerStyle={styles.rulesScroll} showsVerticalScrollIndicator={false}>
-            {RULES_SECTIONS.map((s, i) => (
+            {getRulesSections(locale).map((s, i) => (
               <View key={i} style={styles.rulesSection}>
                 <Text style={styles.rulesSectionTitle}>{s.title}</Text>
                 <Text style={styles.rulesSectionBody}>{s.body}</Text>
