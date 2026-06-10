@@ -22,6 +22,7 @@ import { ZoomableBoard } from '../../components/ZoomableBoard';
 import { DiceRollModal } from '../../components/DiceRollModal';
 import { PropertiesPanel } from '../../components/PropertiesPanel';
 import { PlayerInfoModal } from '../../components/PlayerInfoModal';
+import { SpaceInfoModal } from '../../components/SpaceInfoModal';
 import {
   C,
   FONTS,
@@ -78,6 +79,7 @@ export default function GameScreen() {
   const [loading,       setLoading]       = useState(true);
   const [idleSeconds,   setIdleSeconds]   = useState(0);
   const [infoPlayerId,  setInfoPlayerId]  = useState<string | null>(null);
+  const [infoSpace,     setInfoSpace]     = useState<BoardSpace | null>(null);
 
   const channelsRef            = useRef<RealtimeChannel[]>([]);
   const myPlayerIdRef          = useRef<string | null>(null);
@@ -693,6 +695,7 @@ export default function GameScreen() {
             turnNumber={currentRound}
             propLevels={propLevels}
             onPlayerPress={setInfoPlayerId}
+            onSpacePress={setInfoSpace}
             onTokenStep={() => playSound('hop')}
           />
         </ZoomableBoard>
@@ -981,6 +984,14 @@ export default function GameScreen() {
         playerIdx={Math.max(0, players.findIndex(p => p.id === infoPlayerId))}
         propLevels={propLevels}
         onClose={() => setInfoPlayerId(null)}
+      />
+
+      {/* ── SPACE INFO CARD (tap any board tile) ── */}
+      <SpaceInfoModal
+        space={infoSpace}
+        players={players}
+        propLevels={propLevels}
+        onClose={() => setInfoSpace(null)}
       />
 
       {/* ── NOTIFICATION (tax, jail, GO, errors) ── */}

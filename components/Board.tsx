@@ -92,10 +92,11 @@ function WalkingToken({ playerIdx, position, tileSize, onStep, onPress }: {
   );
 }
 
-function SpaceTile({ space, side, owner, size }: {
+function SpaceTile({ space, side, owner, size, onPress }: {
   space: BoardSpace; side: string;
   owner?: { color: string; level: number };
   size: number;
+  onPress?: () => void;
 }) {
   const isCorner  = CORNER_TYPES.has(space.type);
   const bandColor = getBandColor(space);
@@ -137,7 +138,7 @@ function SpaceTile({ space, side, owner, size }: {
   const iconSize = isCorner ? size * 0.34 : size * 0.22;
 
   return (
-    <View style={{ width: size, height: size, backgroundColor: isCorner ? C.corner : C.tile, borderWidth: 0.5, borderColor: C.border, overflow: 'hidden' }}>
+    <Pressable onPress={onPress} style={{ width: size, height: size, backgroundColor: isCorner ? C.corner : C.tile, borderWidth: 0.5, borderColor: C.border, overflow: 'hidden' }}>
       <View style={contentPos}>
         <View style={{ transform: [{ rotate }], alignItems: 'center', width: isSide ? size - bandSize : undefined }}>
           {icon
@@ -166,7 +167,7 @@ function SpaceTile({ space, side, owner, size }: {
           ))}
         </View>
       )}
-    </View>
+    </Pressable>
   );
 }
 
@@ -187,10 +188,11 @@ function BoardCenter({ tileSize, turnNumber }: { tileSize: number; turnNumber: n
   );
 }
 
-export function Board({ players, boardWidth, turnNumber, propLevels, onPlayerPress, onTokenStep }: {
+export function Board({ players, boardWidth, turnNumber, propLevels, onPlayerPress, onSpacePress, onTokenStep }: {
   players: Player[]; boardWidth: number; turnNumber: number;
   propLevels: Record<string, number>;
   onPlayerPress?: (playerId: string) => void;
+  onSpacePress?: (space: BoardSpace) => void;
   onTokenStep?: () => void;
 }) {
   const tileSize = boardWidth / 8;
@@ -220,7 +222,7 @@ export function Board({ players, boardWidth, turnNumber, propLevels, onPlayerPre
         else                side = 'right';
         return (
           <View key={idx} style={{ position: 'absolute', top: row * tileSize, left: col * tileSize }}>
-            <SpaceTile space={space} side={side} owner={ownersByPos[idx]} size={tileSize} />
+            <SpaceTile space={space} side={side} owner={ownersByPos[idx]} size={tileSize} onPress={() => onSpacePress?.(space)} />
           </View>
         );
       })}
