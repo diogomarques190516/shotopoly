@@ -8,9 +8,11 @@ export const C = {
   text:      '#f4f5fb',
   textDim:   'rgba(244,245,251,0.55)',
   textFaint: 'rgba(244,245,251,0.32)',
-  accent:    '#00E5C0',                  // electric mint — the brand color
-  accentDim: 'rgba(0,229,192,0.25)',
-  accentInk: '#03241d',                  // text on accent surfaces
+  accent:    '#FF4655',                  // logo red — primary accent
+  accentDim: 'rgba(255,70,85,0.30)',
+  accentInk: '#FFFFFF',                  // text on red surfaces
+  amber:     '#FFC300',                  // logo gold — money, titles, CTAs
+  amberInk:  '#2B1A00',                  // text on gold surfaces
   danger:    '#FF4655',
   border:    'rgba(255,255,255,0.06)',
   green:     '#39FF8B',
@@ -24,18 +26,19 @@ export const FONTS = {
   bodyHeavy: 'Nunito_800ExtraBold',
 };
 
-export const PLAYER_COLORS = ['#00E5C0', '#FF4655', '#FF8A3D', '#4FC3F7', '#FF6BD0', '#39FF8B', '#F4F5FB', '#FFB4A2'];
+// Body color of each character below — used for rings, dots and highlights
+export const PLAYER_COLORS = ['#FF4655', '#FFC300', '#39D98A', '#4FC3F7', '#FF6BD0', '#FF8A3D', '#00E5C0', '#E8ECF5'];
 
-// Original token silhouettes (white PNGs tinted with the player color)
+// Original full-color party characters drawn in scripts/gen-art.js
 export const TOKEN_IMAGES = [
-  require('../assets/art/token_circle.png'),
-  require('../assets/art/token_triangle.png'),
-  require('../assets/art/token_square.png'),
-  require('../assets/art/token_diamond.png'),
-  require('../assets/art/token_star.png'),
-  require('../assets/art/token_hexagon.png'),
-  require('../assets/art/token_heart.png'),
-  require('../assets/art/token_bolt.png'),
+  require('../assets/art/char_1.png'),
+  require('../assets/art/char_2.png'),
+  require('../assets/art/char_3.png'),
+  require('../assets/art/char_4.png'),
+  require('../assets/art/char_5.png'),
+  require('../assets/art/char_6.png'),
+  require('../assets/art/char_7.png'),
+  require('../assets/art/char_8.png'),
 ];
 
 export const ART = {

@@ -43,7 +43,7 @@ export function PropertiesPanel({ players, currentPlayerId, myPlayerId, propLeve
                 <Text style={{ fontSize: 11, fontFamily: isMe ? FONTS.bodyHeavy : FONTS.body, color: isMe ? '#fff' : C.textDim }} numberOfLines={1}>
                   {p.name}
                 </Text>
-                <Text style={{ fontSize: 11, color: C.green, fontFamily: FONTS.bodyHeavy, marginLeft: 'auto' }}>
+                <Text style={{ fontSize: 11, color: C.amber, fontFamily: FONTS.bodyHeavy, marginLeft: 'auto' }}>
                   {formatMoney(p.money)}
                 </Text>
                 {(p.shots_owed ?? 0) > 0 ? (

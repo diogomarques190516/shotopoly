@@ -68,7 +68,7 @@ export default function HomeScreen() {
   if (restoring) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#00E5C0" />
+        <ActivityIndicator size="large" color="#FFC300" />
       </View>
     );
   }
@@ -236,7 +236,7 @@ export default function HomeScreen() {
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color="#03241d" />
+              <ActivityIndicator color="#2B1A00" />
             ) : (
               <Text style={styles.btnPrimaryText}>{t('create_game', locale)}</Text>
             )}
@@ -267,7 +267,7 @@ export default function HomeScreen() {
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color="#00E5C0" />
+              <ActivityIndicator color="#FFC300" />
             ) : (
               <Text style={styles.btnSecondaryText}>{t('join_game', locale)}</Text>
             )}
@@ -318,10 +318,11 @@ export default function HomeScreen() {
   );
 }
 
-const ACCENT = '#00E5C0';
+const ACCENT = '#FF4655';
+const AMBER  = '#FFC300';
 const BG   = '#0a0d18';
 const CARD = '#13182a';
-const INK    = '#03241d';
+const INK    = '#2B1A00';
 
 const styles = StyleSheet.create({
   container: {
@@ -347,7 +348,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 46,
     fontFamily: FONTS.display,
-    color: ACCENT,
+    color: AMBER,
     letterSpacing: 3,
     textShadowColor: 'rgba(233,69,96,0.85)',
     textShadowOffset: { width: 3, height: 3 },
@@ -357,7 +358,7 @@ const styles = StyleSheet.create({
     width: 54,
     height: 54,
     marginVertical: 10,
-    tintColor: ACCENT,
+    tintColor: AMBER,
   },
   subtitle: {
     fontSize: 15,
@@ -374,7 +375,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.08)',
   },
   label: {
-    color: ACCENT,
+    color: AMBER,
     fontSize: 13,
     fontFamily: FONTS.bodyHeavy,
     marginBottom: 8,
@@ -398,10 +399,10 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.bodyHeavy,
     textAlign: 'center',
     letterSpacing: 8,
-    color: ACCENT,
+    color: AMBER,
   },
   btnPrimary: {
-    backgroundColor: ACCENT,
+    backgroundColor: AMBER,
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
@@ -483,7 +484,7 @@ const styles = StyleSheet.create({
   rulesTitle: {
     fontSize: 24,
     fontFamily: FONTS.display,
-    color: ACCENT,
+    color: AMBER,
     letterSpacing: 1,
   },
   rulesClose: {
@@ -509,7 +510,7 @@ const styles = StyleSheet.create({
   rulesSectionTitle: {
     fontSize: 14,
     fontFamily: FONTS.bodyHeavy,
-    color: ACCENT,
+    color: AMBER,
     marginBottom: 8,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
@@ -533,7 +534,7 @@ const styles = StyleSheet.create({
     padding: 28,
     width: '100%',
     borderWidth: 1,
-    borderColor: 'rgba(0,229,192,0.25)',
+    borderColor: 'rgba(255,195,0,0.25)',
   },
   alertTitle: {
     color: ACCENT,
@@ -551,7 +552,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   alertBtn: {
-    backgroundColor: ACCENT,
+    backgroundColor: AMBER,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',

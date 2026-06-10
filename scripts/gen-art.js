@@ -15,16 +15,74 @@ const wrap = (inner) =>
 const W = 'fill="#FFFFFF"';
 const S = 'fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round"';
 
-// ── player tokens: 8 distinct silhouettes ─────────────────────────────────────
-const TOKENS = {
-  token_circle:   `<circle cx="64" cy="64" r="46" ${W}/>`,
-  token_triangle: `<path d="M64 16 L114 104 L14 104 Z" ${W}/>`,
-  token_square:   `<rect x="22" y="22" width="84" height="84" rx="16" ${W}/>`,
-  token_diamond:  `<path d="M64 10 L118 64 L64 118 L10 64 Z" ${W}/>`,
-  token_star:     `<path d="M64 12 L76.3 47 L113.5 47.9 L84 70.5 L94.6 106.1 L64 85 L33.4 106.1 L44 70.5 L14.5 47.9 L51.7 47 Z" ${W}/>`,
-  token_hexagon:  `<path d="M64 12 L109 38 L109 90 L64 116 L19 90 L19 38 Z" ${W}/>`,
-  token_heart:    `<path d="M64 112 C28 84 16 62 16 44 C16 28 28 18 42 18 C52 18 60 24 64 32 C68 24 76 18 86 18 C100 18 112 28 112 44 C112 62 100 84 64 112 Z" ${W}/>`,
-  token_bolt:     `<path d="M74 8 L26 72 L56 72 L50 120 L102 50 L70 50 Z" ${W}/>`,
+// ── player characters: 8 full-color party blobs, each with its own face ──────
+// Body color matches PLAYER_COLORS[i] in constants/gameConstants.ts.
+const INK_FACE = '#1B2030';
+
+function blob(color, face, hat = '') {
+  return `
+    ${hat}
+    <ellipse cx="64" cy="70" rx="46" ry="44" fill="${color}"/>
+    <ellipse cx="46" cy="50" rx="15" ry="9" fill="rgba(255,255,255,0.30)" transform="rotate(-18 46 50)"/>
+    ${face}`;
+}
+
+const eyesNormal = `
+  <circle cx="48" cy="64" r="10" fill="#FFFFFF"/><circle cx="50" cy="66" r="5" fill="${INK_FACE}"/>
+  <circle cx="80" cy="64" r="10" fill="#FFFFFF"/><circle cx="82" cy="66" r="5" fill="${INK_FACE}"/>`;
+const smile = `<path d="M50 86 Q64 98 78 86" stroke="${INK_FACE}" stroke-width="5.5" fill="none" stroke-linecap="round"/>`;
+
+const CHARS = {
+  // 1 · red — party hat
+  char_1: blob('#FF4655', eyesNormal + smile, `
+    <path d="M64 2 L86 38 L42 38 Z" fill="#FFC300"/>
+    <circle cx="64" cy="4" r="7" fill="#FFFFFF"/>`),
+
+  // 2 · gold — sunglasses
+  char_2: blob('#FFC300', `
+    <rect x="32" y="56" width="27" height="16" rx="6" fill="${INK_FACE}"/>
+    <rect x="69" y="56" width="27" height="16" rx="6" fill="${INK_FACE}"/>
+    <rect x="56" y="60" width="16" height="5" fill="${INK_FACE}"/>
+    <path d="M48 88 Q64 100 80 86" stroke="${INK_FACE}" stroke-width="5.5" fill="none" stroke-linecap="round"/>`),
+
+  // 3 · green — wink + tongue
+  char_3: blob('#39D98A', `
+    <circle cx="48" cy="64" r="10" fill="#FFFFFF"/><circle cx="50" cy="66" r="5" fill="${INK_FACE}"/>
+    <path d="M72 64 L90 64" stroke="${INK_FACE}" stroke-width="5.5" stroke-linecap="round"/>
+    <path d="M50 84 Q64 96 78 84" stroke="${INK_FACE}" stroke-width="5.5" fill="none" stroke-linecap="round"/>
+    <ellipse cx="68" cy="94" rx="8" ry="7" fill="#FF6BD0"/>`),
+
+  // 4 · blue — crown
+  char_4: blob('#4FC3F7', eyesNormal + smile, `
+    <path d="M42 36 L46 10 L58 26 L64 6 L70 26 L82 10 L86 36 Z" fill="#FFC300"/>`),
+
+  // 5 · pink — bow + blush
+  char_5: blob('#FF6BD0', eyesNormal + smile + `
+    <circle cx="36" cy="80" r="6.5" fill="rgba(200,30,90,0.4)"/>
+    <circle cx="92" cy="80" r="6.5" fill="rgba(200,30,90,0.4)"/>`, `
+    <path d="M44 8 L64 20 L44 32 Z" fill="#FF4655"/>
+    <path d="M84 8 L64 20 L84 32 Z" fill="#FF4655"/>
+    <circle cx="64" cy="20" r="7" fill="#D62F4B"/>`),
+
+  // 6 · orange — happy-drunk: closed eyes, wavy mouth, drool drop
+  char_6: blob('#FF8A3D', `
+    <path d="M38 64 Q47 56 56 64" stroke="${INK_FACE}" stroke-width="5.5" fill="none" stroke-linecap="round"/>
+    <path d="M72 64 Q81 56 90 64" stroke="${INK_FACE}" stroke-width="5.5" fill="none" stroke-linecap="round"/>
+    <path d="M48 88 Q56 80 64 88 Q72 96 80 88" stroke="${INK_FACE}" stroke-width="5.5" fill="none" stroke-linecap="round"/>
+    <path d="M84 92 q7 11 0 16 q-7 -5 0 -16" fill="#4FC3F7"/>`),
+
+  // 7 · teal — backwards cap
+  char_7: blob('#00E5C0', eyesNormal + smile, `
+    <path d="M38 38 A26 20 0 0 1 90 38 L90 44 L38 44 Z" fill="#FF4655"/>
+    <rect x="86" y="32" width="20" height="10" rx="5" fill="#D62F4B"/>`),
+
+  // 8 · silver — monocle + moustache
+  char_8: blob('#E8ECF5', `
+    <circle cx="48" cy="64" r="10" fill="#FFFFFF" stroke="${INK_FACE}" stroke-width="2"/><circle cx="50" cy="66" r="5" fill="${INK_FACE}"/>
+    <circle cx="80" cy="64" r="10" fill="#FFFFFF"/><circle cx="82" cy="66" r="5" fill="${INK_FACE}"/>
+    <circle cx="80" cy="64" r="15" fill="none" stroke="${INK_FACE}" stroke-width="4"/>
+    <line x1="80" y1="79" x2="80" y2="94" stroke="${INK_FACE}" stroke-width="3"/>
+    <path d="M42 84 Q53 74 64 82 Q75 74 86 84 Q75 90 64 86 Q53 90 42 84 Z" fill="${INK_FACE}"/>`),
 };
 
 // ── board space + UI icons ────────────────────────────────────────────────────
@@ -87,7 +145,7 @@ const ICONS = {
     <rect x="42" y="94" width="44" height="12" rx="6" ${W}/>`,
 };
 
-for (const [name, inner] of Object.entries({ ...TOKENS, ...ICONS })) {
+for (const [name, inner] of Object.entries({ ...CHARS, ...ICONS })) {
   const svg = wrap(inner);
   const png = new Resvg(svg, { fitTo: { mode: 'width', value: 128 } }).render().asPng();
   fs.writeFileSync(path.join(OUT, `${name}.png`), png);

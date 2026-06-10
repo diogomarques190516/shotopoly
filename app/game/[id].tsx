@@ -747,7 +747,7 @@ export default function GameScreen() {
           activeOpacity={0.85}
         >
           {rolling
-            ? <ActivityIndicator color={isMyTurn && !isJailed ? C.accentInk : C.textFaint} />
+            ? <ActivityIndicator color={isMyTurn && !isJailed ? C.amberInk : C.textFaint} />
             : isJailed
               ? <Text style={[gs.diceTxt, { color: C.textFaint }]}>
                   {t('in_jail', locale, { n: myJailTurns })}
@@ -783,8 +783,8 @@ export default function GameScreen() {
                     <Text style={gs.btnTxt}>{formatMoney(discountedPrice)}{'\n'}+ {sips} shots</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={gs.btnMoney} onPress={() => handleBuyOption('full')}>
-                    <Image source={ART.coins} style={gs.btnIcon} resizeMode="contain" />
-                    <Text style={gs.btnTxt}>{formatMoney(fullPrice)}</Text>
+                    <Image source={ART.coins} style={gs.btnIconDark} resizeMode="contain" />
+                    <Text style={gs.btnTxtDark}>{formatMoney(fullPrice)}</Text>
                   </TouchableOpacity>
                 </View>
                 <TouchableOpacity style={[gs.btnGhost, { marginTop: 12 }]} onPress={() => handleBuyOption('pass')}>
@@ -810,7 +810,7 @@ export default function GameScreen() {
                 <Text style={gs.mDetail}>{t('rent_question', locale)}</Text>
                 <View style={gs.mRow}>
                   <TouchableOpacity style={gs.btnMoney} onPress={() => handlePayRent('full')}>
-                    <Text style={gs.btnTxt}>{t('pay_full', locale, { rent: formatMoney(modal.leveledRent) })}</Text>
+                    <Text style={gs.btnTxtDark}>{t('pay_full', locale, { rent: formatMoney(modal.leveledRent) })}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={gs.btnShots} onPress={() => handlePayRent('discount')}>
                     <Text style={gs.btnTxt}>{t('pay_shots', locale, { rent: formatMoney(discountedRent), n: modal.leveledSips, s: modal.leveledSips !== 1 ? 's' : '' })}</Text>
@@ -855,7 +855,7 @@ export default function GameScreen() {
                         style={canUpgrade ? gs.btnMoney : [gs.btnGhost, { flex: 1, opacity: 0.5 }]}
                         onPress={canUpgrade ? () => handleUpgrade(space.position) : undefined}
                       >
-                        <Text style={canUpgrade ? gs.btnTxt : gs.btnGhostTxt}>
+                        <Text style={canUpgrade ? gs.btnTxtDark : gs.btnGhostTxt}>
                           {canUpgrade ? t('upgrade_btn', locale, { cost: formatMoney(cost) }) : t('upgrade_no_funds', locale)}
                         </Text>
                       </TouchableOpacity>
@@ -910,7 +910,7 @@ export default function GameScreen() {
               </Text>
               <View style={gs.mRow}>
                 <TouchableOpacity style={gs.btnMoney} onPress={() => handleJailChoice(true)}>
-                  <Text style={gs.btnTxt}>{t('jail_bail', locale)}</Text>
+                  <Text style={gs.btnTxtDark}>{t('jail_bail', locale)}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={gs.btnShots} onPress={() => handleJailChoice(false)}>
                   <Text style={gs.btnTxt}>{t('jail_skip', locale)}</Text>
@@ -925,22 +925,22 @@ export default function GameScreen() {
       <Modal visible={modal?.kind === 'winner'} transparent animationType="fade">
         {modal?.kind === 'winner' && (
           <View style={gs.notifOverlay}>
-            <View style={[gs.notifCard, { borderColor: C.accent + '88' }]}>
-              <View style={[gs.notifAccent, { backgroundColor: C.accent }]} />
+            <View style={[gs.notifCard, { borderColor: C.amber + '88' }]}>
+              <View style={[gs.notifAccent, { backgroundColor: C.amber }]} />
               <View style={gs.notifBody}>
                 <View style={{ alignItems: 'center', marginBottom: 6 }}>
-                  <Image source={ART.trophy} style={{ width: 52, height: 52, tintColor: C.accent }} resizeMode="contain" />
+                  <Image source={ART.trophy} style={{ width: 52, height: 52, tintColor: C.amber }} resizeMode="contain" />
                 </View>
-                <Text style={[gs.notifTitle, { color: C.accent, fontSize: 18 }]}>{t('winner_title', locale, { name: modal.winnerName })}</Text>
+                <Text style={[gs.notifTitle, { color: C.amber, fontSize: 18 }]}>{t('winner_title', locale, { name: modal.winnerName })}</Text>
                 <Text style={{ color: C.textDim, fontSize: 12, textAlign: 'center', marginBottom: 8 }}>
                   {t('game_over_sub', locale, { n: modal.totalRounds })}
                 </Text>
                 {modal.finalStandings.map((s, i) => (
                   <View key={i} style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 8 }}>
                     <Token playerIdx={s.playerIdx} size={14} />
-                    <Text style={{ color: i === 0 ? C.accent : C.textDim, fontSize: 14, fontFamily: i === 0 ? FONTS.bodyHeavy : FONTS.body }}>{s.name}</Text>
+                    <Text style={{ color: i === 0 ? C.amber : C.textDim, fontSize: 14, fontFamily: i === 0 ? FONTS.bodyHeavy : FONTS.body }}>{s.name}</Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 'auto' }}>
-                      <Text style={{ color: C.green, fontSize: 13, fontFamily: FONTS.bodyBold }}>{formatMoney(s.worth)}</Text>
+                      <Text style={{ color: C.amber, fontSize: 13, fontFamily: FONTS.bodyBold }}>{formatMoney(s.worth)}</Text>
                       {s.shots > 0 && (
                         <>
                           <Image source={ART.shot} style={{ width: 11, height: 11, tintColor: C.danger }} resizeMode="contain" />
@@ -950,8 +950,8 @@ export default function GameScreen() {
                     </View>
                   </View>
                 ))}
-                <TouchableOpacity style={[gs.notifBtn, { backgroundColor: C.accent, marginTop: 24 }]} onPress={exitGame}>
-                  <Text style={[gs.notifBtnTxt, { color: C.accentInk }]}>{t('back_home', locale)}</Text>
+                <TouchableOpacity style={[gs.notifBtn, { backgroundColor: C.amber, marginTop: 24 }]} onPress={exitGame}>
+                  <Text style={[gs.notifBtnTxt, { color: C.amberInk }]}>{t('back_home', locale)}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1022,7 +1022,7 @@ const gs = StyleSheet.create({
 
   header:      { alignItems: 'center', paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 },
   headerSub:   { fontSize: 9, color: C.textFaint, letterSpacing: 1.5, textTransform: 'uppercase' },
-  headerTitle: { fontSize: 17, fontFamily: FONTS.display, color: C.accent, letterSpacing: 1 },
+  headerTitle: { fontSize: 17, fontFamily: FONTS.display, color: C.amber, letterSpacing: 1 },
   exitBtn:     { position: 'absolute', right: 16, top: 8, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, backgroundColor: C.danger },
   exitTxt:     { fontSize: 11, color: '#fff', fontWeight: '700' },
 
@@ -1031,13 +1031,13 @@ const gs = StyleSheet.create({
   rollSpace: { color: C.accent, fontSize: 12, maxWidth: '55%' },
 
   diceWrap: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 8, paddingTop: 8, backgroundColor: C.bg },
-  diceBtn:  { height: 58, borderRadius: 16, backgroundColor: C.accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  diceBtn:  { height: 58, borderRadius: 16, backgroundColor: C.amber, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
   diceDim:  { backgroundColor: 'rgba(255,255,255,0.06)' },
-  diceTxt:  { fontSize: 17, fontWeight: '700', color: C.accentInk },
+  diceTxt:  { fontSize: 17, fontWeight: '700', color: C.amberInk },
 
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'flex-end' },
-  mCard:   { backgroundColor: '#1a1f35', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 28, paddingBottom: 44, borderTopWidth: 1, borderTopColor: 'rgba(0,229,192,0.3)' },
-  mTitle:   { color: C.accent, fontSize: 20, fontFamily: FONTS.display, textAlign: 'center', marginBottom: 12, letterSpacing: 0.5 },
+  mCard:   { backgroundColor: '#1a1f35', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 28, paddingBottom: 44, borderTopWidth: 1, borderTopColor: 'rgba(255,70,85,0.35)' },
+  mTitle:   { color: C.amber, fontSize: 20, fontFamily: FONTS.display, textAlign: 'center', marginBottom: 12, letterSpacing: 0.5 },
   colorBar: { height: 6, borderRadius: 3, marginBottom: 12 },
   mName:    { color: '#fff', fontSize: 22, fontWeight: '700', textAlign: 'center', marginBottom: 6 },
   mSub:     { color: C.textDim, fontSize: 15, textAlign: 'center', marginBottom: 8 },
@@ -1046,13 +1046,15 @@ const gs = StyleSheet.create({
   mRow:     { flexDirection: 'row', gap: 12, marginTop: 20 },
   eventMsg: { color: '#fff', fontSize: 18, textAlign: 'center', lineHeight: 26, marginVertical: 20 },
 
-  btnGold:     { backgroundColor: C.accent, borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
-  btnGoldTxt:  { color: C.accentInk, fontSize: 16, fontWeight: '800' },
+  btnGold:     { backgroundColor: C.amber, borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
+  btnGoldTxt:  { color: C.amberInk, fontSize: 16, fontWeight: '800' },
   btnGhost:    { borderRadius: 12, paddingVertical: 16, alignItems: 'center', borderWidth: 1, borderColor: '#444' },
   btnGhostTxt: { color: C.textDim, fontSize: 16, fontWeight: '700' },
-  btnMoney:    { flex: 1, backgroundColor: '#2BB573', borderRadius: 12, paddingVertical: 16, alignItems: 'center', justifyContent: 'center' },
+  btnMoney:    { flex: 1, backgroundColor: C.amber, borderRadius: 12, paddingVertical: 16, alignItems: 'center', justifyContent: 'center' },
   btnShots:    { flex: 1, backgroundColor: C.danger, borderRadius: 12, paddingVertical: 16, alignItems: 'center', justifyContent: 'center' },
   btnIcon:     { width: 18, height: 18, tintColor: '#fff', marginBottom: 5 },
+  btnIconDark: { width: 18, height: 18, tintColor: C.amberInk, marginBottom: 5 },
+  btnTxtDark:  { color: C.amberInk, fontSize: 15, fontWeight: '800', textAlign: 'center' },
   btnTxt:      { color: '#fff', fontSize: 15, fontWeight: '800', textAlign: 'center' },
 
   notifOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.78)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28 },

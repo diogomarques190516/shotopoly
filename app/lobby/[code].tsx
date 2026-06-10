@@ -183,7 +183,7 @@ export default function LobbyScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#00E5C0" />
+        <ActivityIndicator size="large" color="#FFC300" />
       </View>
     );
   }
@@ -217,7 +217,7 @@ export default function LobbyScreen() {
             <Text style={styles.playerName}>{item.name}</Text>
             {item.is_host && (
               <View style={styles.hostBadge}>
-                <Image source={ART.crown} style={{ width: 13, height: 13, tintColor: ACCENT }} resizeMode="contain" />
+                <Image source={ART.crown} style={{ width: 13, height: 13, tintColor: AMBER }} resizeMode="contain" />
                 <Text style={styles.hostBadgeTxt}>Host</Text>
               </View>
             )}
@@ -266,7 +266,7 @@ export default function LobbyScreen() {
             disabled={!canStart || starting}
           >
             {starting ? (
-              <ActivityIndicator color="#03241d" />
+              <ActivityIndicator color="#2B1A00" />
             ) : (
               <Text style={styles.startBtnText}>
                 {canStart ? t('start_game', locale) : t('wait_min', locale)}
@@ -275,7 +275,7 @@ export default function LobbyScreen() {
           </TouchableOpacity>
         ) : (
           <View style={styles.waitingBox}>
-            <ActivityIndicator color="#00E5C0" style={{ marginRight: 10 }} />
+            <ActivityIndicator color="#FFC300" style={{ marginRight: 10 }} />
             <Text style={styles.waitingText}>{t('waiting_host', locale)}</Text>
           </View>
         )}
@@ -296,10 +296,11 @@ export default function LobbyScreen() {
   );
 }
 
-const ACCENT = '#00E5C0';
+const ACCENT = '#FF4655';
+const AMBER  = '#FFC300';
 const BG   = '#0a0d18';
 const CARD = '#13182a';
-const INK    = '#03241d';
+const INK    = '#2B1A00';
 
 const styles = StyleSheet.create({
   container: {
@@ -331,7 +332,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   codeText: {
-    color: ACCENT,
+    color: AMBER,
     fontSize: 48,
     fontFamily: FONTS.display,
     letterSpacing: 10,
@@ -341,9 +342,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 8,
     borderRadius: 8,
-    backgroundColor: 'rgba(0,229,192,0.14)',
+    backgroundColor: 'rgba(255,70,85,0.14)',
     borderWidth: 1,
-    borderColor: 'rgba(0,229,192,0.4)',
+    borderColor: 'rgba(255,70,85,0.45)',
   },
   shareBtnText: {
     color: ACCENT,
@@ -351,7 +352,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   sectionTitle: {
-    color: ACCENT,
+    color: AMBER,
     fontSize: 16,
     fontWeight: '700',
     marginBottom: 12,
@@ -395,7 +396,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   hostBadgeTxt: {
-    color: ACCENT,
+    color: AMBER,
     fontSize: 13,
     fontFamily: FONTS.bodyBold,
   },
@@ -443,7 +444,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.08)',
   },
   durChipActive: {
-    backgroundColor: 'rgba(0,229,192,0.14)',
+    backgroundColor: 'rgba(255,70,85,0.14)',
     borderColor: ACCENT,
   },
   durChipTxt: {
@@ -461,7 +462,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   startBtn: {
-    backgroundColor: ACCENT,
+    backgroundColor: AMBER,
     borderRadius: 14,
     paddingVertical: 18,
     alignItems: 'center',
@@ -497,7 +498,7 @@ const styles = StyleSheet.create({
     padding: 28,
     width: '100%',
     borderWidth: 1,
-    borderColor: 'rgba(0,229,192,0.25)',
+    borderColor: 'rgba(255,195,0,0.25)',
   },
   alertTitle: {
     color: ACCENT,
@@ -514,7 +515,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   alertBtn: {
-    backgroundColor: ACCENT,
+    backgroundColor: AMBER,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',

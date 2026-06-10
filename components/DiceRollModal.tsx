@@ -144,12 +144,12 @@ export function DiceRollModal({ visible, playerName, onComplete }: {
 
 const s = StyleSheet.create({
   overlay:      { flex: 1, backgroundColor: 'rgba(7,9,18,0.88)', alignItems: 'center', justifyContent: 'center', gap: 32 },
-  glow:         { position: 'absolute', width: 320, height: 320, borderRadius: 160, backgroundColor: 'rgba(0,229,192,0.06)' },
+  glow:         { position: 'absolute', width: 320, height: 320, borderRadius: 160, backgroundColor: 'rgba(255,70,85,0.08)' },
   prompt:       { fontSize: 11, letterSpacing: 4, color: C.accent, textTransform: 'uppercase', fontWeight: '600' },
   diceRow:      { flexDirection: 'row', gap: 20 },
   resultBlock:  { alignItems: 'center', gap: 6 },
   totalLabel:   { fontSize: 9, color: 'rgba(255,255,255,0.45)', letterSpacing: 3, textTransform: 'uppercase' },
-  totalNum:     { fontSize: 84, fontFamily: FONTS.display, color: C.accent, lineHeight: 92 },
+  totalNum:     { fontSize: 84, fontFamily: FONTS.display, color: C.amber, lineHeight: 92 },
   moveChip:     { paddingHorizontal: 16, paddingVertical: 7, borderRadius: 999, backgroundColor: 'rgba(57,255,139,0.12)', borderWidth: 1, borderColor: 'rgba(57,255,139,0.4)' },
   moveChipText: { fontSize: 11, color: C.green, letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: '600' },
 });

@@ -57,9 +57,9 @@ function SpaceTile({ space, side, tokenIdxs, owner, size }: {
           {icon
             ? <Image source={icon} resizeMode="contain"
                 style={{ width: iconSize, height: iconSize, marginBottom: 1,
-                         tintColor: isCorner ? C.accent : 'rgba(244,245,251,0.8)' }} />
+                         tintColor: isCorner ? C.amber : 'rgba(244,245,251,0.8)' }} />
             : null}
-          <Text style={{ fontSize: isCorner ? 8.5 : 7.5, fontWeight: '700', color: isCorner ? C.accent : C.text, textAlign: 'center', lineHeight: isCorner ? 11 : 9.5 }} numberOfLines={2}>
+          <Text style={{ fontSize: isCorner ? 8.5 : 7.5, fontWeight: '700', color: isCorner ? C.amber : C.text, textAlign: 'center', lineHeight: isCorner ? 11 : 9.5 }} numberOfLines={2}>
             {getSpaceName(space.name, getLocale())}
           </Text>
           {space.sub
@@ -89,7 +89,7 @@ function SpaceTile({ space, side, tokenIdxs, owner, size }: {
             </View>
           ))}
           {tokenIdxs.length > 4 && (
-            <Text style={{ fontSize: 7, color: C.accent, marginLeft: -3, zIndex: 10 }}>+{tokenIdxs.length - 4}</Text>
+            <Text style={{ fontSize: 7, color: C.amber, marginLeft: -3, zIndex: 10 }}>+{tokenIdxs.length - 4}</Text>
           )}
         </View>
       )}
@@ -102,13 +102,13 @@ function BoardCenter({ tileSize, turnNumber }: { tileSize: number; turnNumber: n
   return (
     <View style={{ position: 'absolute', top: tileSize, left: tileSize, width: inner, height: inner, alignItems: 'center', justifyContent: 'center' }}>
       <View style={{ transform: [{ rotate: '-12deg' }], alignItems: 'center', gap: 4 }}>
-        <Text style={{ fontSize: 9, color: 'rgba(0,229,192,0.55)', letterSpacing: 3, textTransform: 'uppercase' }}>
+        <Text style={{ fontSize: 9, color: 'rgba(255,195,0,0.6)', letterSpacing: 3, textTransform: 'uppercase' }}>
           {t('board_round', getLocale(), { n: String(turnNumber).padStart(2, '0') })}
         </Text>
         <Text style={{ fontSize: inner * 0.13, fontFamily: FONTS.display, color: C.accent, lineHeight: inner * 0.13, letterSpacing: 2, textAlign: 'center' }}>
           {'SHOTO\nPOLY'}
         </Text>
-        <View style={{ width: inner * 0.32, height: 2, backgroundColor: 'rgba(0,229,192,0.35)', borderRadius: 1 }} />
+        <View style={{ width: inner * 0.32, height: 2, backgroundColor: 'rgba(255,70,85,0.55)', borderRadius: 1 }} />
       </View>
     </View>
   );

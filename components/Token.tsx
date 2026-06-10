@@ -1,7 +1,7 @@
 import { Image, View } from 'react-native';
 import { TOKEN_IMAGES, PLAYER_COLORS } from '../constants/gameConstants';
 
-// A player's game piece: an original silhouette tinted with the player color.
+// A player's game piece: an original full-color character.
 // `playerIdx` is the player's index in turn order (stable across screens).
 export function Token({ playerIdx, size, framed = false }: {
   playerIdx: number;
@@ -13,7 +13,7 @@ export function Token({ playerIdx, size, framed = false }: {
   const img = (
     <Image
       source={source}
-      style={{ width: size, height: size, tintColor: color }}
+      style={{ width: size, height: size }}
       resizeMode="contain"
     />
   );
