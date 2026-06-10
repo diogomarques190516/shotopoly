@@ -1,22 +1,13 @@
 import { useMemo } from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, Image } from 'react-native';
 import { Player, BoardSpace } from '../lib/types';
 import { ALL_SPACES, indexToGrid } from '../lib/gameLogic';
-import { C, FONTS, PLAYER_COLORS, PLAYER_EMOJIS, CORNER_TYPES, getBandColor } from '../constants/gameConstants';
+import { C, FONTS, CORNER_TYPES, SPACE_ICONS, PLAYER_COLORS, getBandColor } from '../constants/gameConstants';
 import { getLocale, getSpaceName, t } from '../lib/i18n';
+import { Token } from './Token';
 
-export type TokenInfo = { id: string; color: string; emoji: string };
-
-function PlayerToken({ color, emoji, size }: { color: string; emoji: string; size: number }) {
-  return (
-    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: '#0a0d18cc', borderWidth: 2, borderColor: color, alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={{ fontSize: size * 0.6, lineHeight: size }}>{emoji}</Text>
-    </View>
-  );
-}
-
-function SpaceTile({ space, side, tokens, owner, size }: {
-  space: BoardSpace; side: string; tokens: TokenInfo[];
+function SpaceTile({ space, side, tokenIdxs, owner, size }: {
+  space: BoardSpace; side: string; tokenIdxs: number[];
   owner?: { color: string; level: number };
   size: number;
 }) {
@@ -24,6 +15,7 @@ function SpaceTile({ space, side, tokens, owner, size }: {
   const bandColor = getBandColor(space);
   const bandSize  = Math.round(size * 0.28);
   const isSide    = side === 'left' || side === 'right';
+  const icon      = SPACE_ICONS[space.type];
 
   const bandPos: any = { position: 'absolute', backgroundColor: bandColor };
   if (side === 'bottom') Object.assign(bandPos, { top: 0, left: 0, right: 0, height: bandSize });
@@ -56,14 +48,18 @@ function SpaceTile({ space, side, tokens, owner, size }: {
   if (side === 'left')   Object.assign(dotPos, { right: 1, top: 0, bottom: 0, flexDirection: 'column', gap: 1.5 });
   if (side === 'right')  Object.assign(dotPos, { left: 1, top: 0, bottom: 0, flexDirection: 'column', gap: 1.5 });
 
+  const iconSize = isCorner ? size * 0.34 : size * 0.22;
+
   return (
     <View style={{ width: size, height: size, backgroundColor: isCorner ? C.corner : C.tile, borderWidth: 0.5, borderColor: C.border, overflow: 'hidden' }}>
       <View style={contentPos}>
         <View style={{ transform: [{ rotate }], alignItems: 'center', width: isSide ? size - bandSize : undefined }}>
-          {space.emoji
-            ? <Text style={{ fontSize: isCorner ? 20 : 12, lineHeight: isCorner ? 24 : 15 }}>{space.emoji}</Text>
+          {icon
+            ? <Image source={icon} resizeMode="contain"
+                style={{ width: iconSize, height: iconSize, marginBottom: 1,
+                         tintColor: isCorner ? C.accent : 'rgba(244,245,251,0.8)' }} />
             : null}
-          <Text style={{ fontSize: isCorner ? 8.5 : 7.5, fontWeight: '700', color: isCorner ? C.gold : C.text, textAlign: 'center', lineHeight: isCorner ? 11 : 9.5 }} numberOfLines={2}>
+          <Text style={{ fontSize: isCorner ? 8.5 : 7.5, fontWeight: '700', color: isCorner ? C.accent : C.text, textAlign: 'center', lineHeight: isCorner ? 11 : 9.5 }} numberOfLines={2}>
             {getSpaceName(space.name, getLocale())}
           </Text>
           {space.sub
@@ -85,15 +81,15 @@ function SpaceTile({ space, side, tokens, owner, size }: {
         </View>
       )}
 
-      {tokens.length > 0 && (
+      {tokenIdxs.length > 0 && (
         <View style={{ position: 'absolute', bottom: 1, right: 1, flexDirection: 'row', alignItems: 'flex-end' }}>
-          {tokens.slice(0, 4).map((t, i) => (
-            <View key={t.id} style={{ marginLeft: i > 0 ? -5 : 0, zIndex: tokens.length - i }}>
-              <PlayerToken color={t.color} emoji={t.emoji} size={tokens.length > 2 ? 12 : 14} />
+          {tokenIdxs.slice(0, 4).map((idx, i) => (
+            <View key={idx} style={{ marginLeft: i > 0 ? -5 : 0, zIndex: tokenIdxs.length - i }}>
+              <Token playerIdx={idx} size={tokenIdxs.length > 2 ? 9 : 11} framed />
             </View>
           ))}
-          {tokens.length > 4 && (
-            <Text style={{ fontSize: 7, color: C.gold, marginLeft: -3, zIndex: 10 }}>+{tokens.length - 4}</Text>
+          {tokenIdxs.length > 4 && (
+            <Text style={{ fontSize: 7, color: C.accent, marginLeft: -3, zIndex: 10 }}>+{tokenIdxs.length - 4}</Text>
           )}
         </View>
       )}
@@ -106,15 +102,13 @@ function BoardCenter({ tileSize, turnNumber }: { tileSize: number; turnNumber: n
   return (
     <View style={{ position: 'absolute', top: tileSize, left: tileSize, width: inner, height: inner, alignItems: 'center', justifyContent: 'center' }}>
       <View style={{ transform: [{ rotate: '-12deg' }], alignItems: 'center', gap: 4 }}>
-        <Text style={{ fontSize: 9, color: 'rgba(255,210,63,0.5)', letterSpacing: 3, textTransform: 'uppercase' }}>
+        <Text style={{ fontSize: 9, color: 'rgba(0,229,192,0.55)', letterSpacing: 3, textTransform: 'uppercase' }}>
           {t('board_round', getLocale(), { n: String(turnNumber).padStart(2, '0') })}
         </Text>
-        <Text style={{ fontSize: inner * 0.085, fontFamily: FONTS.display, color: C.gold, lineHeight: inner * 0.1, textAlign: 'center' }}>
+        <Text style={{ fontSize: inner * 0.13, fontFamily: FONTS.display, color: C.accent, lineHeight: inner * 0.13, letterSpacing: 2, textAlign: 'center' }}>
           {'SHOTO\nPOLY'}
         </Text>
-        <Text style={{ fontSize: 8, color: 'rgba(57,255,139,0.55)', letterSpacing: 2, textTransform: 'uppercase' }}>
-          🥃 🎲 🥃
-        </Text>
+        <View style={{ width: inner * 0.32, height: 2, backgroundColor: 'rgba(0,229,192,0.35)', borderRadius: 1 }} />
       </View>
     </View>
   );
@@ -128,11 +122,11 @@ export function Board({ players, boardWidth, turnNumber, propLevels, animPositio
   const tileSize = boardWidth / 8;
 
   const tokensByPos = useMemo(() => {
-    const map: Record<number, TokenInfo[]> = {};
+    const map: Record<number, number[]> = {};
     players.forEach((p, idx) => {
       const pos = animPositions?.[p.id] ?? p.position;
       if (!map[pos]) map[pos] = [];
-      map[pos].push({ id: p.id, color: PLAYER_COLORS[idx % PLAYER_COLORS.length], emoji: PLAYER_EMOJIS[idx % PLAYER_EMOJIS.length] });
+      map[pos].push(idx);
     });
     return map;
   }, [players, animPositions]);
@@ -149,7 +143,7 @@ export function Board({ players, boardWidth, turnNumber, propLevels, animPositio
   }, [players, propLevels]);
 
   return (
-    <View style={{ width: boardWidth, height: boardWidth, backgroundColor: '#0f1424', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,210,63,0.2)', overflow: 'hidden' }}>
+    <View style={{ width: boardWidth, height: boardWidth, backgroundColor: '#0f1424', borderRadius: 14, borderWidth: 1, borderColor: C.accentDim, overflow: 'hidden' }}>
       <BoardCenter tileSize={tileSize} turnNumber={turnNumber} />
       {ALL_SPACES.map((space, idx) => {
         const { row, col } = indexToGrid(idx);
@@ -162,7 +156,7 @@ export function Board({ players, boardWidth, turnNumber, propLevels, animPositio
         else                side = 'right';
         return (
           <View key={idx} style={{ position: 'absolute', top: row * tileSize, left: col * tileSize }}>
-            <SpaceTile space={space} side={side} tokens={tokensByPos[idx] ?? []} owner={ownersByPos[idx]} size={tileSize} />
+            <SpaceTile space={space} side={side} tokenIdxs={tokensByPos[idx] ?? []} owner={ownersByPos[idx]} size={tileSize} />
           </View>
         );
       })}

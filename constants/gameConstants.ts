@@ -1,4 +1,4 @@
-import type { BoardSpace, Player } from '../lib/types';
+import type { BoardSpace, Player, SpaceType } from '../lib/types';
 import { ALL_SPACES } from '../lib/gameLogic';
 
 export const C = {
@@ -8,21 +8,58 @@ export const C = {
   text:      '#f4f5fb',
   textDim:   'rgba(244,245,251,0.55)',
   textFaint: 'rgba(244,245,251,0.32)',
-  gold:      '#FFD23F',
+  accent:    '#00E5C0',                  // electric mint — the brand color
+  accentDim: 'rgba(0,229,192,0.25)',
+  accentInk: '#03241d',                  // text on accent surfaces
+  danger:    '#FF4655',
   border:    'rgba(255,255,255,0.06)',
   green:     '#39FF8B',
 };
 
 // Loaded in app/_layout.tsx; referenced by name everywhere else.
 export const FONTS = {
-  display:   'LuckiestGuy_400Regular',
+  display:   'BebasNeue_400Regular',
   body:      'Nunito_600SemiBold',
   bodyBold:  'Nunito_700Bold',
   bodyHeavy: 'Nunito_800ExtraBold',
 };
 
-export const PLAYER_COLORS = ['#FFD23F', '#39FF8B', '#FF5252', '#FF6BD0', '#FF7F50', '#4FC3F7', '#81C784', '#FF8A65'];
-export const PLAYER_EMOJIS = ['🦊', '🐻', '🐸', '🐼', '🦁', '🐯', '🐺', '🦝'];
+export const PLAYER_COLORS = ['#00E5C0', '#FF4655', '#FF8A3D', '#4FC3F7', '#FF6BD0', '#39FF8B', '#F4F5FB', '#FFB4A2'];
+
+// Original token silhouettes (white PNGs tinted with the player color)
+export const TOKEN_IMAGES = [
+  require('../assets/art/token_circle.png'),
+  require('../assets/art/token_triangle.png'),
+  require('../assets/art/token_square.png'),
+  require('../assets/art/token_diamond.png'),
+  require('../assets/art/token_star.png'),
+  require('../assets/art/token_hexagon.png'),
+  require('../assets/art/token_heart.png'),
+  require('../assets/art/token_bolt.png'),
+];
+
+export const ART = {
+  go:      require('../assets/art/icon_go.png'),
+  jail:    require('../assets/art/icon_jail.png'),
+  siren:   require('../assets/art/icon_siren.png'),
+  martini: require('../assets/art/icon_martini.png'),
+  spark:   require('../assets/art/icon_spark.png'),
+  coins:   require('../assets/art/icon_coins.png'),
+  shot:    require('../assets/art/icon_shot.png'),
+  die:     require('../assets/art/icon_die.png'),
+  crown:   require('../assets/art/icon_crown.png'),
+  trophy:  require('../assets/art/icon_trophy.png'),
+};
+
+export const SPACE_ICONS: Partial<Record<SpaceType, any>> = {
+  go:           ART.go,
+  jail:         ART.jail,
+  go_to_jail:   ART.siren,
+  free_parking: ART.martini,
+  event:        ART.spark,
+  tax:          ART.coins,
+};
+
 export const CORNER_TYPES  = new Set(['go', 'jail', 'free_parking', 'go_to_jail']);
 export const UPGRADE_COST  = [0, 200000, 400000]; // cost to reach level 2, level 3
 

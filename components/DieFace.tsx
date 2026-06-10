@@ -19,8 +19,8 @@ export function DieFace({ value, size = 78 }: { value: number; size?: number }) 
     <View style={{
       width: size, height: size,
       borderRadius: Math.round(size * 0.2),
-      backgroundColor: '#fffaf0',
-      shadowColor: C.gold, shadowOffset: { width: 0, height: 0 },
+      backgroundColor: '#f4f7ff',
+      shadowColor: C.accent, shadowOffset: { width: 0, height: 0 },
       shadowOpacity: 0.6, shadowRadius: 14, elevation: 10,
     }}>
       {dots.map(([r, c], i) => (

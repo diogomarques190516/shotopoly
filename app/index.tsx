@@ -10,6 +10,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Modal,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -17,7 +18,7 @@ import { supabase } from '../lib/supabase';
 import { generateRoomCode } from '../lib/gameLogic';
 import { getLocale, t } from '../lib/i18n';
 import { getRulesSections } from '../lib/rules';
-import { FONTS } from '../constants/gameConstants';
+import { FONTS, ART } from '../constants/gameConstants';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -67,7 +68,7 @@ export default function HomeScreen() {
   if (restoring) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#FFD23F" />
+        <ActivityIndicator size="large" color="#00E5C0" />
       </View>
     );
   }
@@ -214,7 +215,7 @@ export default function HomeScreen() {
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <Text style={styles.title}>SHOTOPOLY</Text>
-          <Text style={styles.emoji}>🥃</Text>
+          <Image source={ART.shot} style={styles.heroIcon} resizeMode="contain" />
           <Text style={styles.subtitle}>{t('subtitle', locale)}</Text>
         </View>
 
@@ -235,7 +236,7 @@ export default function HomeScreen() {
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color="#1a1409" />
+              <ActivityIndicator color="#03241d" />
             ) : (
               <Text style={styles.btnPrimaryText}>{t('create_game', locale)}</Text>
             )}
@@ -266,7 +267,7 @@ export default function HomeScreen() {
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color="#FFD23F" />
+              <ActivityIndicator color="#00E5C0" />
             ) : (
               <Text style={styles.btnSecondaryText}>{t('join_game', locale)}</Text>
             )}
@@ -317,10 +318,10 @@ export default function HomeScreen() {
   );
 }
 
-const GOLD = '#FFD23F';
+const ACCENT = '#00E5C0';
 const BG   = '#0a0d18';
 const CARD = '#13182a';
-const INK  = '#1a1409';
+const INK    = '#03241d';
 
 const styles = StyleSheet.create({
   container: {
@@ -346,15 +347,17 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 46,
     fontFamily: FONTS.display,
-    color: GOLD,
+    color: ACCENT,
     letterSpacing: 3,
     textShadowColor: 'rgba(233,69,96,0.85)',
     textShadowOffset: { width: 3, height: 3 },
     textShadowRadius: 0,
   },
-  emoji: {
-    fontSize: 56,
-    marginVertical: 8,
+  heroIcon: {
+    width: 54,
+    height: 54,
+    marginVertical: 10,
+    tintColor: ACCENT,
   },
   subtitle: {
     fontSize: 15,
@@ -371,7 +374,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.08)',
   },
   label: {
-    color: GOLD,
+    color: ACCENT,
     fontSize: 13,
     fontFamily: FONTS.bodyHeavy,
     marginBottom: 8,
@@ -395,10 +398,10 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.bodyHeavy,
     textAlign: 'center',
     letterSpacing: 8,
-    color: GOLD,
+    color: ACCENT,
   },
   btnPrimary: {
-    backgroundColor: GOLD,
+    backgroundColor: ACCENT,
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
@@ -414,10 +417,10 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: GOLD,
+    borderColor: ACCENT,
   },
   btnSecondaryText: {
-    color: GOLD,
+    color: ACCENT,
     fontSize: 18,
     fontFamily: FONTS.bodyHeavy,
   },
@@ -480,7 +483,7 @@ const styles = StyleSheet.create({
   rulesTitle: {
     fontSize: 24,
     fontFamily: FONTS.display,
-    color: GOLD,
+    color: ACCENT,
     letterSpacing: 1,
   },
   rulesClose: {
@@ -506,7 +509,7 @@ const styles = StyleSheet.create({
   rulesSectionTitle: {
     fontSize: 14,
     fontFamily: FONTS.bodyHeavy,
-    color: GOLD,
+    color: ACCENT,
     marginBottom: 8,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
@@ -530,10 +533,10 @@ const styles = StyleSheet.create({
     padding: 28,
     width: '100%',
     borderWidth: 1,
-    borderColor: 'rgba(255,210,63,0.25)',
+    borderColor: 'rgba(0,229,192,0.25)',
   },
   alertTitle: {
-    color: GOLD,
+    color: ACCENT,
     fontSize: 18,
     fontFamily: FONTS.bodyHeavy,
     textAlign: 'center',
@@ -548,7 +551,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   alertBtn: {
-    backgroundColor: GOLD,
+    backgroundColor: ACCENT,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',

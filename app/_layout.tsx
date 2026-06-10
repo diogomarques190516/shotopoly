@@ -1,12 +1,12 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View } from 'react-native';
-import { useFonts, LuckiestGuy_400Regular } from '@expo-google-fonts/luckiest-guy';
+import { useFonts, BebasNeue_400Regular } from '@expo-google-fonts/bebas-neue';
 import { Nunito_600SemiBold, Nunito_700Bold, Nunito_800ExtraBold } from '@expo-google-fonts/nunito';
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
-    LuckiestGuy_400Regular,
+    BebasNeue_400Regular,
     Nunito_600SemiBold,
     Nunito_700Bold,
     Nunito_800ExtraBold,

@@ -8,13 +8,15 @@ import {
   Modal,
   ActivityIndicator,
   Share,
+  Image,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../lib/supabase';
 import { getLocale, t } from '../../lib/i18n';
 import { Player, Room } from '../../lib/types';
-import { FONTS, GAME_DURATIONS, calcMaxTurns } from '../../constants/gameConstants';
+import { FONTS, ART, GAME_DURATIONS, calcMaxTurns } from '../../constants/gameConstants';
+import { Token } from '../../components/Token';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 export default function LobbyScreen() {
@@ -181,7 +183,7 @@ export default function LobbyScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#FFD23F" />
+        <ActivityIndicator size="large" color="#00E5C0" />
       </View>
     );
   }
@@ -207,15 +209,18 @@ export default function LobbyScreen() {
         data={players}
         keyExtractor={(p) => p.id}
         style={styles.list}
-        renderItem={({ item }) => (
+        renderItem={({ item, index }) => (
           <View style={styles.playerRow}>
             <View style={styles.playerAvatar}>
-              <Text style={styles.playerAvatarText}>
-                {item.name.charAt(0).toUpperCase()}
-              </Text>
+              <Token playerIdx={index} size={22} />
             </View>
             <Text style={styles.playerName}>{item.name}</Text>
-            {item.is_host && <Text style={styles.hostBadge}>👑 Host</Text>}
+            {item.is_host && (
+              <View style={styles.hostBadge}>
+                <Image source={ART.crown} style={{ width: 13, height: 13, tintColor: ACCENT }} resizeMode="contain" />
+                <Text style={styles.hostBadgeTxt}>Host</Text>
+              </View>
+            )}
             {item.id === myPlayer?.id && (
               <Text style={styles.youBadge}>{t('you_badge', locale)}</Text>
             )}
@@ -261,7 +266,7 @@ export default function LobbyScreen() {
             disabled={!canStart || starting}
           >
             {starting ? (
-              <ActivityIndicator color="#1a1409" />
+              <ActivityIndicator color="#03241d" />
             ) : (
               <Text style={styles.startBtnText}>
                 {canStart ? t('start_game', locale) : t('wait_min', locale)}
@@ -270,7 +275,7 @@ export default function LobbyScreen() {
           </TouchableOpacity>
         ) : (
           <View style={styles.waitingBox}>
-            <ActivityIndicator color="#FFD23F" style={{ marginRight: 10 }} />
+            <ActivityIndicator color="#00E5C0" style={{ marginRight: 10 }} />
             <Text style={styles.waitingText}>{t('waiting_host', locale)}</Text>
           </View>
         )}
@@ -291,10 +296,10 @@ export default function LobbyScreen() {
   );
 }
 
-const GOLD = '#FFD23F';
+const ACCENT = '#00E5C0';
 const BG   = '#0a0d18';
 const CARD = '#13182a';
-const INK  = '#1a1409';
+const INK    = '#03241d';
 
 const styles = StyleSheet.create({
   container: {
@@ -316,7 +321,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: GOLD,
+    borderColor: ACCENT,
   },
   codeLabel: {
     color: '#9aa0b5',
@@ -326,7 +331,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   codeText: {
-    color: GOLD,
+    color: ACCENT,
     fontSize: 48,
     fontFamily: FONTS.display,
     letterSpacing: 10,
@@ -336,17 +341,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 8,
     borderRadius: 8,
-    backgroundColor: 'rgba(255,210,63,0.14)',
+    backgroundColor: 'rgba(0,229,192,0.14)',
     borderWidth: 1,
-    borderColor: 'rgba(255,210,63,0.4)',
+    borderColor: 'rgba(0,229,192,0.4)',
   },
   shareBtnText: {
-    color: GOLD,
+    color: ACCENT,
     fontSize: 14,
     fontWeight: '700',
   },
   sectionTitle: {
-    color: GOLD,
+    color: ACCENT,
     fontSize: 16,
     fontWeight: '700',
     marginBottom: 12,
@@ -370,15 +375,12 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: GOLD,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
-  },
-  playerAvatarText: {
-    color: INK,
-    fontWeight: '900',
-    fontSize: 18,
   },
   playerName: {
     color: '#fff',
@@ -387,9 +389,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   hostBadge: {
-    color: GOLD,
-    fontSize: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     marginLeft: 8,
+  },
+  hostBadgeTxt: {
+    color: ACCENT,
+    fontSize: 13,
+    fontFamily: FONTS.bodyBold,
   },
   youBadge: {
     color: '#9aa0b5',
@@ -435,8 +443,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.08)',
   },
   durChipActive: {
-    backgroundColor: 'rgba(255,210,63,0.14)',
-    borderColor: GOLD,
+    backgroundColor: 'rgba(0,229,192,0.14)',
+    borderColor: ACCENT,
   },
   durChipTxt: {
     color: '#9aa0b5',
@@ -444,7 +452,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   durChipTxtActive: {
-    color: GOLD,
+    color: ACCENT,
   },
   durInfo: {
     color: '#5a6070',
@@ -453,7 +461,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   startBtn: {
-    backgroundColor: GOLD,
+    backgroundColor: ACCENT,
     borderRadius: 14,
     paddingVertical: 18,
     alignItems: 'center',
@@ -489,10 +497,10 @@ const styles = StyleSheet.create({
     padding: 28,
     width: '100%',
     borderWidth: 1,
-    borderColor: 'rgba(255,210,63,0.25)',
+    borderColor: 'rgba(0,229,192,0.25)',
   },
   alertTitle: {
-    color: GOLD,
+    color: ACCENT,
     fontSize: 18,
     fontWeight: '800',
     textAlign: 'center',
@@ -506,7 +514,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   alertBtn: {
-    backgroundColor: GOLD,
+    backgroundColor: ACCENT,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',

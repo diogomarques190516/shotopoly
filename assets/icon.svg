@@ -1,17 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
   <defs>
     <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#FF5252"/>
-      <stop offset="55%" stop-color="#E94560"/>
-      <stop offset="100%" stop-color="#8E1230"/>
+      <stop offset="0%" stop-color="#141C36"/>
+      <stop offset="100%" stop-color="#0A0D18"/>
     </linearGradient>
     <linearGradient id="liqGrad" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#FFE566"/>
-      <stop offset="100%" stop-color="#FFC300"/>
+      <stop offset="0%" stop-color="#00F5CD"/>
+      <stop offset="100%" stop-color="#00BD9C"/>
     </linearGradient>
     <linearGradient id="shineGrad" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="rgba(255,255,255,0.22)"/>
-      <stop offset="45%" stop-color="rgba(255,255,255,0.04)"/>
+      <stop offset="0%" stop-color="rgba(255,255,255,0.28)"/>
+      <stop offset="45%" stop-color="rgba(255,255,255,0.05)"/>
       <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
     </linearGradient>
   </defs>
@@ -25,26 +24,26 @@
   <!-- Glass shine on left side -->
   <polygon points="232,188 400,188 300,664 364,664" fill="url(#shineGrad)"/>
 
-  <!-- Die pips — 5-face pattern in dark purple -->
-  <circle cx="392" cy="306" r="34" fill="#6E0B22"/>
-  <circle cx="632" cy="306" r="34" fill="#6E0B22"/>
-  <circle cx="512" cy="426" r="34" fill="#6E0B22"/>
-  <circle cx="392" cy="546" r="34" fill="#6E0B22"/>
-  <circle cx="632" cy="546" r="34" fill="#6E0B22"/>
+  <!-- Die pips — 5-face pattern punched in dark navy -->
+  <circle cx="392" cy="306" r="34" fill="#0A1224"/>
+  <circle cx="632" cy="306" r="34" fill="#0A1224"/>
+  <circle cx="512" cy="426" r="34" fill="#0A1224"/>
+  <circle cx="392" cy="546" r="34" fill="#0A1224"/>
+  <circle cx="632" cy="546" r="34" fill="#0A1224"/>
 
   <!-- Glass outline — top rim -->
-  <line x1="232" y1="188" x2="792" y2="188" stroke="#FFE066" stroke-width="22" stroke-linecap="round"/>
+  <line x1="232" y1="188" x2="792" y2="188" stroke="#FF4655" stroke-width="22" stroke-linecap="round"/>
   <!-- Left side -->
-  <line x1="232" y1="188" x2="364" y2="664" stroke="#FFE066" stroke-width="22" stroke-linecap="round"/>
+  <line x1="232" y1="188" x2="364" y2="664" stroke="#FF4655" stroke-width="22" stroke-linecap="round"/>
   <!-- Right side -->
-  <line x1="792" y1="188" x2="660" y2="664" stroke="#FFE066" stroke-width="22" stroke-linecap="round"/>
+  <line x1="792" y1="188" x2="660" y2="664" stroke="#FF4655" stroke-width="22" stroke-linecap="round"/>
   <!-- Bottom of body -->
-  <line x1="364" y1="664" x2="660" y2="664" stroke="#FFE066" stroke-width="22" stroke-linecap="round"/>
+  <line x1="364" y1="664" x2="660" y2="664" stroke="#FF4655" stroke-width="22" stroke-linecap="round"/>
 
   <!-- Stem -->
-  <rect x="416" y="664" width="192" height="54" fill="#FFE066"/>
+  <rect x="416" y="664" width="192" height="54" fill="#FF4655"/>
   <!-- Inner base -->
-  <rect x="336" y="718" width="352" height="48" rx="8" fill="#FFE066"/>
+  <rect x="336" y="718" width="352" height="48" rx="8" fill="#FF4655"/>
   <!-- Outer foot -->
-  <rect x="260" y="766" width="504" height="52" rx="18" fill="#FFE066"/>
+  <rect x="260" y="766" width="504" height="52" rx="18" fill="#FF4655"/>
 </svg>

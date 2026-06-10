@@ -7,6 +7,7 @@ import {
   Modal,
   ActivityIndicator,
   useWindowDimensions,
+  Image,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,12 +23,13 @@ import { PropertiesPanel } from '../../components/PropertiesPanel';
 import {
   C,
   FONTS,
-  PLAYER_EMOJIS,
+  ART,
   UPGRADE_COST,
   formatMoney,
   getLeveledRent,
   getLeveledSips,
 } from '../../constants/gameConstants';
+import { Token } from '../../components/Token';
 import { initSounds, playSound } from '../../lib/sounds';
 import { getLocale, t, getEventMessage } from '../../lib/i18n';
 import { adjustMoney, adjustShots, transferMoney, advanceTurnGuarded, endGame } from '../../lib/db';
@@ -42,7 +44,7 @@ type ModalType =
   | { kind: 'notification'; title: string; message: string; accentColor: string }
   | { kind: 'jail_choice' }
   | { kind: 'claim' }
-  | { kind: 'winner'; winnerName: string; winnerEmoji: string; totalRounds: number; finalStandings: Array<{ name: string; worth: number; shots: number; emoji: string }> }
+  | { kind: 'winner'; winnerName: string; winnerIdx: number; totalRounds: number; finalStandings: Array<{ name: string; worth: number; shots: number; playerIdx: number }> }
   | null;
 
 // Final ranking value: cash + what was invested in properties (price + upgrades)
@@ -132,13 +134,13 @@ export default function GameScreen() {
     setModal({
       kind: 'winner',
       winnerName:  winner.p.name,
-      winnerEmoji: PLAYER_EMOJIS[wIdx >= 0 ? wIdx % PLAYER_EMOJIS.length : 0],
+      winnerIdx:   Math.max(0, wIdx),
       totalRounds: Math.max(1, Math.round((gameState.max_turns ?? gameState.turn_number) / Math.max(1, players.length))),
       finalStandings: ranked.map(({ p, worth }) => ({
         name:  p.name,
         worth,
         shots: p.shots_owed,
-        emoji: PLAYER_EMOJIS[players.findIndex(pl => pl.id === p.id) % PLAYER_EMOJIS.length],
+        playerIdx: players.findIndex(pl => pl.id === p.id),
       })),
     });
   }, [gameState?.phase, players]);
@@ -310,12 +312,12 @@ export default function GameScreen() {
       if (passedGo) {
         playSound('go');
         notifContinuationRef.current = () => resolveSpace(space, newPos, freshMoney);
-        setModal({ kind: 'notification', title: t('go_title', locale), message: t('go_msg', locale), accentColor: C.gold });
+        setModal({ kind: 'notification', title: t('go_title', locale), message: t('go_msg', locale), accentColor: C.accent });
       } else {
         await resolveSpace(space, newPos, freshMoney);
       }
     } catch (err: any) {
-      showNotification(t('err_title', locale), err.message, '#E94560');
+      showNotification(t('err_title', locale), err.message, C.danger);
     } finally {
       setRolling(false);
       setAnimPositions({});
@@ -679,7 +681,7 @@ export default function GameScreen() {
   // ── render ────────────────────────────────────────────────────────────────────
 
   if (loading || !gameState) {
-    return <View style={gs.center}><ActivityIndicator size="large" color={C.gold} /></View>;
+    return <View style={gs.center}><ActivityIndicator size="large" color={C.accent} /></View>;
   }
 
   const isMyTurn      = gameState.current_player_id === myPlayer?.id && gameState.phase === 'rolling';
@@ -687,9 +689,6 @@ export default function GameScreen() {
   const propLevels    = gameState.property_levels ?? {};
   const myJailTurns   = myPlayer?.jail_turns ?? 0;
   const isJailed      = isMyTurn && myJailTurns > 0;
-
-  const myPlayerIdx   = players.findIndex(p => p.id === myPlayer?.id);
-  const myPlayerEmoji = PLAYER_EMOJIS[myPlayerIdx >= 0 ? myPlayerIdx % PLAYER_EMOJIS.length : 0];
 
   const nPlayers      = Math.max(1, players.length);
   const currentRound  = Math.min(Math.ceil(gameState.turn_number / nPlayers), Math.ceil((gameState.max_turns ?? gameState.turn_number) / nPlayers));
@@ -734,7 +733,7 @@ export default function GameScreen() {
 
       <View style={[gs.diceWrap, { paddingBottom: insets.bottom + 8 }]}>
         {!isMyTurn && idleSeconds >= 60 && (
-          <TouchableOpacity style={[gs.diceBtn, { backgroundColor: '#E94560', marginBottom: 6 }]} onPress={skipIdleTurn}>
+          <TouchableOpacity style={[gs.diceBtn, { backgroundColor: C.danger, marginBottom: 6 }]} onPress={skipIdleTurn}>
             <Text style={[gs.diceTxt, { color: '#fff' }]}>{t('skip_idle', locale, { name: currentPlayer?.name ?? '…' })}</Text>
           </TouchableOpacity>
         )}
@@ -748,7 +747,7 @@ export default function GameScreen() {
           activeOpacity={0.85}
         >
           {rolling
-            ? <ActivityIndicator color={isMyTurn && !isJailed ? '#1a1409' : C.textFaint} />
+            ? <ActivityIndicator color={isMyTurn && !isJailed ? C.accentInk : C.textFaint} />
             : isJailed
               ? <Text style={[gs.diceTxt, { color: C.textFaint }]}>
                   {t('in_jail', locale, { n: myJailTurns })}
@@ -763,7 +762,6 @@ export default function GameScreen() {
       <DiceRollModal
         visible={diceVisible}
         playerName={myPlayer?.name ?? ''}
-        playerEmoji={myPlayerEmoji}
         onComplete={handleDiceComplete}
       />
 
@@ -781,10 +779,12 @@ export default function GameScreen() {
                 <Text style={gs.mDetail}>{t('buy_rent', locale, { rent: formatMoney(modal.space.rent ?? 0) })}</Text>
                 <View style={gs.mRow}>
                   <TouchableOpacity style={gs.btnShots} onPress={() => handleBuyOption('discount')}>
-                    <Text style={gs.btnTxt}>💸 {formatMoney(discountedPrice)}{'\n'}+ {sips} shots</Text>
+                    <Image source={ART.shot} style={gs.btnIcon} resizeMode="contain" />
+                    <Text style={gs.btnTxt}>{formatMoney(discountedPrice)}{'\n'}+ {sips} shots</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={gs.btnMoney} onPress={() => handleBuyOption('full')}>
-                    <Text style={gs.btnTxt}>💰 {formatMoney(fullPrice)}</Text>
+                    <Image source={ART.coins} style={gs.btnIcon} resizeMode="contain" />
+                    <Text style={gs.btnTxt}>{formatMoney(fullPrice)}</Text>
                   </TouchableOpacity>
                 </View>
                 <TouchableOpacity style={[gs.btnGhost, { marginTop: 12 }]} onPress={() => handleBuyOption('pass')}>
@@ -838,7 +838,7 @@ export default function GameScreen() {
                 <Text style={gs.mName}>{space.name}</Text>
                 <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 12 }}>
                   {[1, 2, 3].map(l => (
-                    <View key={l} style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: l <= level ? (space.color ?? C.gold) : 'rgba(255,255,255,0.12)' }} />
+                    <View key={l} style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: l <= level ? (space.color ?? C.accent) : 'rgba(255,255,255,0.12)' }} />
                   ))}
                 </View>
                 {level >= 3 ? (
@@ -863,10 +863,10 @@ export default function GameScreen() {
                   </>
                 )}
                 <TouchableOpacity
-                  style={[gs.btnGhost, { marginTop: 12, borderColor: '#E94560' }]}
+                  style={[gs.btnGhost, { marginTop: 12, borderColor: C.danger }]}
                   onPress={() => handleSell(space.position)}
                 >
-                  <Text style={[gs.btnGhostTxt, { color: '#E94560' }]}>
+                  <Text style={[gs.btnGhostTxt, { color: C.danger }]}>
                     {t('sell_btn', locale, { price: formatMoney(Math.floor((space.price ?? 0) * 0.5)) })}
                   </Text>
                 </TouchableOpacity>
@@ -925,22 +925,33 @@ export default function GameScreen() {
       <Modal visible={modal?.kind === 'winner'} transparent animationType="fade">
         {modal?.kind === 'winner' && (
           <View style={gs.notifOverlay}>
-            <View style={[gs.notifCard, { borderColor: C.gold + '88' }]}>
-              <View style={[gs.notifAccent, { backgroundColor: C.gold }]} />
+            <View style={[gs.notifCard, { borderColor: C.accent + '88' }]}>
+              <View style={[gs.notifAccent, { backgroundColor: C.accent }]} />
               <View style={gs.notifBody}>
-                <Text style={{ fontSize: 48, textAlign: 'center' }}>{modal.winnerEmoji}</Text>
-                <Text style={[gs.notifTitle, { color: C.gold, fontSize: 18 }]}>{t('winner_title', locale, { name: modal.winnerName })}</Text>
+                <View style={{ alignItems: 'center', marginBottom: 6 }}>
+                  <Image source={ART.trophy} style={{ width: 52, height: 52, tintColor: C.accent }} resizeMode="contain" />
+                </View>
+                <Text style={[gs.notifTitle, { color: C.accent, fontSize: 18 }]}>{t('winner_title', locale, { name: modal.winnerName })}</Text>
                 <Text style={{ color: C.textDim, fontSize: 12, textAlign: 'center', marginBottom: 8 }}>
                   {t('game_over_sub', locale, { n: modal.totalRounds })}
                 </Text>
                 {modal.finalStandings.map((s, i) => (
-                  <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
-                    <Text style={{ color: i === 0 ? C.gold : C.textDim, fontSize: 14 }}>{s.emoji} {s.name}</Text>
-                    <Text style={{ color: C.textDim, fontSize: 13 }}>{formatMoney(s.worth)}  🥃×{s.shots}</Text>
+                  <View key={i} style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 8 }}>
+                    <Token playerIdx={s.playerIdx} size={14} />
+                    <Text style={{ color: i === 0 ? C.accent : C.textDim, fontSize: 14, fontFamily: i === 0 ? FONTS.bodyHeavy : FONTS.body }}>{s.name}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 'auto' }}>
+                      <Text style={{ color: C.green, fontSize: 13, fontFamily: FONTS.bodyBold }}>{formatMoney(s.worth)}</Text>
+                      {s.shots > 0 && (
+                        <>
+                          <Image source={ART.shot} style={{ width: 11, height: 11, tintColor: C.danger }} resizeMode="contain" />
+                          <Text style={{ color: C.danger, fontSize: 12, fontFamily: FONTS.bodyBold }}>×{s.shots}</Text>
+                        </>
+                      )}
+                    </View>
                   </View>
                 ))}
-                <TouchableOpacity style={[gs.notifBtn, { backgroundColor: C.gold, marginTop: 24 }]} onPress={exitGame}>
-                  <Text style={[gs.notifBtnTxt, { color: '#1a1409' }]}>{t('back_home', locale)}</Text>
+                <TouchableOpacity style={[gs.notifBtn, { backgroundColor: C.accent, marginTop: 24 }]} onPress={exitGame}>
+                  <Text style={[gs.notifBtnTxt, { color: C.accentInk }]}>{t('back_home', locale)}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -952,24 +963,24 @@ export default function GameScreen() {
       <Modal visible={modal?.kind === 'claim'} transparent animationType="fade">
         {modal?.kind === 'claim' && (
           <View style={gs.notifOverlay}>
-            <View style={[gs.notifCard, { borderColor: C.gold + '55' }]}>
-              <View style={[gs.notifAccent, { backgroundColor: C.gold }]} />
+            <View style={[gs.notifCard, { borderColor: C.accent + '55' }]}>
+              <View style={[gs.notifAccent, { backgroundColor: C.accent }]} />
               <View style={gs.notifBody}>
-                <Text style={[gs.notifTitle, { color: C.gold }]}>{t('claim_title', locale)}</Text>
+                <Text style={[gs.notifTitle, { color: C.accent }]}>{t('claim_title', locale)}</Text>
                 <Text style={{ color: C.textDim, fontSize: 14, textAlign: 'center', marginBottom: 16 }}>
                   {t('claim_msg', locale)}
                 </Text>
                 {players.map((p, idx) => (
                   <TouchableOpacity
                     key={p.id}
-                    style={[gs.btnGhost, { marginTop: 8, flexDirection: 'row', justifyContent: 'center', gap: 8 }]}
+                    style={[gs.btnGhost, { marginTop: 8, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10 }]}
                     onPress={async () => {
                       const rid = roomIdRef.current ?? p.room_id;
                       await claimIdentity(p, rid);
                       setModal(null);
                     }}
                   >
-                    <Text style={{ fontSize: 18 }}>{PLAYER_EMOJIS[idx % PLAYER_EMOJIS.length]}</Text>
+                    <Token playerIdx={idx} size={18} />
                     <Text style={[gs.btnGhostTxt, { color: '#fff' }]}>{p.name}</Text>
                   </TouchableOpacity>
                 ))}
@@ -992,7 +1003,7 @@ export default function GameScreen() {
                   style={[gs.notifBtn, { backgroundColor: modal.accentColor }]}
                   onPress={handleNotificationDismiss}
                 >
-                  <Text style={[gs.notifBtnTxt, { color: modal.accentColor === C.gold ? '#1a1409' : '#fff' }]}>Ok</Text>
+                  <Text style={[gs.notifBtnTxt, { color: modal.accentColor === C.accent ? C.accentInk : '#fff' }]}>Ok</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1011,22 +1022,22 @@ const gs = StyleSheet.create({
 
   header:      { alignItems: 'center', paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 },
   headerSub:   { fontSize: 9, color: C.textFaint, letterSpacing: 1.5, textTransform: 'uppercase' },
-  headerTitle: { fontSize: 17, fontFamily: FONTS.display, color: C.gold, letterSpacing: 1 },
-  exitBtn:     { position: 'absolute', right: 16, top: 8, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, backgroundColor: '#E94560' },
+  headerTitle: { fontSize: 17, fontFamily: FONTS.display, color: C.accent, letterSpacing: 1 },
+  exitBtn:     { position: 'absolute', right: 16, top: 8, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, backgroundColor: C.danger },
   exitTxt:     { fontSize: 11, color: '#fff', fontWeight: '700' },
 
   rollStrip: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingTop: 4 },
   rollNum:   { color: '#fff', fontSize: 17, fontWeight: '800' },
-  rollSpace: { color: C.gold, fontSize: 12, maxWidth: '55%' },
+  rollSpace: { color: C.accent, fontSize: 12, maxWidth: '55%' },
 
   diceWrap: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 8, paddingTop: 8, backgroundColor: C.bg },
-  diceBtn:  { height: 58, borderRadius: 16, backgroundColor: C.gold, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  diceBtn:  { height: 58, borderRadius: 16, backgroundColor: C.accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
   diceDim:  { backgroundColor: 'rgba(255,255,255,0.06)' },
-  diceTxt:  { fontSize: 17, fontWeight: '700', color: '#1a1409' },
+  diceTxt:  { fontSize: 17, fontWeight: '700', color: C.accentInk },
 
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'flex-end' },
-  mCard:   { backgroundColor: '#1a1f35', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 28, paddingBottom: 44, borderTopWidth: 1, borderTopColor: 'rgba(255,210,63,0.3)' },
-  mTitle:   { color: C.gold, fontSize: 20, fontFamily: FONTS.display, textAlign: 'center', marginBottom: 12, letterSpacing: 0.5 },
+  mCard:   { backgroundColor: '#1a1f35', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 28, paddingBottom: 44, borderTopWidth: 1, borderTopColor: 'rgba(0,229,192,0.3)' },
+  mTitle:   { color: C.accent, fontSize: 20, fontFamily: FONTS.display, textAlign: 'center', marginBottom: 12, letterSpacing: 0.5 },
   colorBar: { height: 6, borderRadius: 3, marginBottom: 12 },
   mName:    { color: '#fff', fontSize: 22, fontWeight: '700', textAlign: 'center', marginBottom: 6 },
   mSub:     { color: C.textDim, fontSize: 15, textAlign: 'center', marginBottom: 8 },
@@ -1035,12 +1046,13 @@ const gs = StyleSheet.create({
   mRow:     { flexDirection: 'row', gap: 12, marginTop: 20 },
   eventMsg: { color: '#fff', fontSize: 18, textAlign: 'center', lineHeight: 26, marginVertical: 20 },
 
-  btnGold:     { backgroundColor: C.gold, borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
-  btnGoldTxt:  { color: '#1a1409', fontSize: 16, fontWeight: '800' },
+  btnGold:     { backgroundColor: C.accent, borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
+  btnGoldTxt:  { color: C.accentInk, fontSize: 16, fontWeight: '800' },
   btnGhost:    { borderRadius: 12, paddingVertical: 16, alignItems: 'center', borderWidth: 1, borderColor: '#444' },
   btnGhostTxt: { color: C.textDim, fontSize: 16, fontWeight: '700' },
-  btnMoney:    { flex: 1, backgroundColor: '#2BB573', borderRadius: 12, paddingVertical: 18, alignItems: 'center' },
-  btnShots:    { flex: 1, backgroundColor: '#E94560', borderRadius: 12, paddingVertical: 18, alignItems: 'center' },
+  btnMoney:    { flex: 1, backgroundColor: '#2BB573', borderRadius: 12, paddingVertical: 16, alignItems: 'center', justifyContent: 'center' },
+  btnShots:    { flex: 1, backgroundColor: C.danger, borderRadius: 12, paddingVertical: 16, alignItems: 'center', justifyContent: 'center' },
+  btnIcon:     { width: 18, height: 18, tintColor: '#fff', marginBottom: 5 },
   btnTxt:      { color: '#fff', fontSize: 15, fontWeight: '800', textAlign: 'center' },
 
   notifOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.78)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28 },
