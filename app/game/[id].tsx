@@ -21,6 +21,7 @@ import { DiceRollModal } from '../../components/DiceRollModal';
 import { PropertiesPanel } from '../../components/PropertiesPanel';
 import {
   C,
+  FONTS,
   PLAYER_EMOJIS,
   UPGRADE_COST,
   formatMoney,
@@ -29,6 +30,7 @@ import {
 } from '../../constants/gameConstants';
 import { initSounds, playSound } from '../../lib/sounds';
 import { getLocale, t, getEventMessage } from '../../lib/i18n';
+import { adjustMoney, adjustShots, transferMoney, advanceTurnGuarded, endGame } from '../../lib/db';
 
 // ── modal union ───────────────────────────────────────────────────────────────
 
@@ -39,8 +41,20 @@ type ModalType =
   | { kind: 'event';      message: string; effect: string; currentMoney: number }
   | { kind: 'notification'; title: string; message: string; accentColor: string }
   | { kind: 'jail_choice' }
-  | { kind: 'winner'; winnerName: string; winnerEmoji: string; finalStandings: Array<{ name: string; money: number; shots: number; emoji: string }> }
+  | { kind: 'claim' }
+  | { kind: 'winner'; winnerName: string; winnerEmoji: string; totalRounds: number; finalStandings: Array<{ name: string; worth: number; shots: number; emoji: string }> }
   | null;
+
+// Final ranking value: cash + what was invested in properties (price + upgrades)
+function netWorth(p: Player, propLevels: Record<string, number>): number {
+  const props = (p.properties as number[]) ?? [];
+  return props.reduce((sum, pos) => {
+    const space = getBoardSpace(pos);
+    const level = propLevels[String(pos)] ?? 1;
+    const upgrades = UPGRADE_COST.slice(1, level).reduce((a, b) => a + b, 0);
+    return sum + (space.price ?? 0) + upgrades;
+  }, p.money);
+}
 
 // ── GameScreen ────────────────────────────────────────────────────────────────
 
@@ -53,7 +67,7 @@ export default function GameScreen() {
 
   const DICE_H    = 58 + 16 + insets.bottom;
   const PANEL_H   = 130;
-  const HEADER_H  = 44;
+  const HEADER_H  = 44 + insets.top;
   const PADDING_V = 8;
   const availH    = sh - HEADER_H - PANEL_H - DICE_H - PADDING_V;
   const boardWidth = Math.min(sw - 8, availH);
@@ -77,6 +91,8 @@ export default function GameScreen() {
   const notifContinuationRef   = useRef<(() => void) | null>(null);
   const processedJailTurnRef   = useRef<number | null>(null);
   const idleTimerRef           = useRef<ReturnType<typeof setInterval> | null>(null);
+  const hasRolledRef           = useRef(false);
+  const endedShownRef          = useRef(false);
 
   useEffect(() => {
     initSounds();
@@ -97,16 +113,46 @@ export default function GameScreen() {
     setModal({ kind: 'jail_choice' });
   }, [gameState, myPlayer]);
 
+  // One roll per turn: re-arm whenever the turn changes
+  useEffect(() => {
+    hasRolledRef.current = false;
+  }, [gameState?.turn_number]);
+
+  // When the game ends (phase flips to 'ended' via realtime), every client
+  // shows the winner screen — not just the player who triggered the end.
+  useEffect(() => {
+    if (gameState?.phase !== 'ended' || players.length === 0 || endedShownRef.current) return;
+    endedShownRef.current = true;
+    const propLevels = gameState.property_levels ?? {};
+    const ranked = [...players]
+      .map(p => ({ p, worth: netWorth(p, propLevels) }))
+      .sort((a, b) => b.worth - a.worth);
+    const winner = ranked[0];
+    const wIdx = players.findIndex(p => p.id === winner.p.id);
+    setModal({
+      kind: 'winner',
+      winnerName:  winner.p.name,
+      winnerEmoji: PLAYER_EMOJIS[wIdx >= 0 ? wIdx % PLAYER_EMOJIS.length : 0],
+      totalRounds: Math.max(1, Math.round((gameState.max_turns ?? gameState.turn_number) / Math.max(1, players.length))),
+      finalStandings: ranked.map(({ p, worth }) => ({
+        name:  p.name,
+        worth,
+        shots: p.shots_owed,
+        emoji: PLAYER_EMOJIS[players.findIndex(pl => pl.id === p.id) % PLAYER_EMOJIS.length],
+      })),
+    });
+  }, [gameState?.phase, players]);
+
   // Idle-turn timer: counts up while it's not my turn; resets on turn change
   useEffect(() => {
     if (idleTimerRef.current) clearInterval(idleTimerRef.current);
     setIdleSeconds(0);
-    if (!gameState) return;
+    if (!gameState || gameState.phase !== 'rolling') return;
     const isMine = gameState.current_player_id === myPlayer?.id;
     if (isMine) return; // no timer needed — it's my turn
     idleTimerRef.current = setInterval(() => setIdleSeconds(s => s + 1), 1000);
     return () => { if (idleTimerRef.current) clearInterval(idleTimerRef.current); };
-  }, [gameState?.turn_number, gameState?.current_player_id]);
+  }, [gameState?.turn_number, gameState?.current_player_id, gameState?.phase, myPlayer?.id]);
 
   async function skipIdleTurn() {
     setIdleSeconds(0);
@@ -144,40 +190,38 @@ export default function GameScreen() {
         console.warn('[identity] AsyncStorage read failed:', e);
       }
 
+      // Never guess identity: a wrong guess lets one phone control another
+      // player. If we can't match a saved ID, ask the user who they are.
       const savedPlayer = savedId ? all.find(p => p.id === savedId) : null;
       let me: Player | null = null;
-      if (savedPlayer)        { me = savedPlayer; }
+      if (savedPlayer)           { me = savedPlayer; }
       else if (all.length === 1) { me = all[0]; }
-      else if (all.length > 1)   { me = all[all.length - 1]; }
 
       if (me) {
-        setMyPlayer(me);
-        myPlayerIdRef.current = me.id;
-        try {
-          await AsyncStorage.setItem(`player_id_${gs.room_id}`, me.id);
-          // Persist session for restore on next app open
-          await AsyncStorage.setItem('last_session', JSON.stringify({
-            gameStateId: id,
-            roomId: gs.room_id,
-            playerId: me.id,
-          }));
-        } catch (e) {
-          console.warn('[identity] AsyncStorage write failed:', e);
-        }
+        await claimIdentity(me, gs.room_id);
+      } else if (all.length > 1) {
+        setModal({ kind: 'claim' });
       }
-
-      console.log('[identity]', {
-        savedId,
-        resolvedId: me?.id ?? null,
-        currentPlayerId: gs.current_player_id,
-        isMyTurn: me?.id === gs.current_player_id,
-        playerCount: all.length,
-      });
 
       subscribeGS(id);
       subscribePlayers(gs.room_id);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function claimIdentity(p: Player, roomId: string) {
+    setMyPlayer(p);
+    myPlayerIdRef.current = p.id;
+    try {
+      await AsyncStorage.setItem(`player_id_${roomId}`, p.id);
+      await AsyncStorage.setItem('last_session', JSON.stringify({
+        gameStateId: id,
+        roomId,
+        playerId: p.id,
+      }));
+    } catch (e) {
+      console.warn('[identity] AsyncStorage write failed:', e);
     }
   }
 
@@ -224,6 +268,7 @@ export default function GameScreen() {
   const handleDiceComplete = useCallback(async (dice: number) => {
     setDiceVisible(false);
     if (!gameState || !myPlayer) return;
+    hasRolledRef.current = true;
     setRolling(true);
 
     const startPos = myPlayer.position;
@@ -246,10 +291,9 @@ export default function GameScreen() {
       // Hold token at final position in animPositions while we update local state
       setAnimPositions({ [myPlayer.id]: newPos });
 
-      // Persist final position
-      const updates: any = { position: newPos };
-      if (passedGo) updates.money = myPlayer.money + 200000;
-      await supabase.from('players').update(updates).eq('id', myPlayer.id);
+      // Persist final position; GO bonus as an atomic increment
+      await supabase.from('players').update({ position: newPos }).eq('id', myPlayer.id);
+      if (passedGo) await adjustMoney(myPlayer.id, 200000);
 
       // Update local players state with new position so clearing animPositions
       // won't snap the token back to the old position
@@ -325,86 +369,69 @@ export default function GameScreen() {
 
   async function applyEventEffect(effect: string, currentMoney: number) {
     if (!myPlayer || !gameState) return;
-    const myIdx = players.findIndex(p => p.id === myPlayer.id);
+    const me    = myPlayer.id;
+    const myIdx = players.findIndex(p => p.id === me);
     const left  = players[(myIdx + 1) % players.length];
     const right = players[((myIdx - 1) + players.length) % players.length];
+    const others = players.filter(p => p.id !== me);
+
+    const collectFromAll = async (amount: number) => {
+      for (const p of others) await transferMoney(p.id, me, amount);
+    };
 
     switch (effect) {
-      case 'collect_20_all':
-        for (const p of players) if (p.id !== myPlayer.id) await supabase.from('players').update({ money: Math.max(0, p.money - 20000) }).eq('id', p.id);
-        await supabase.from('players').update({ money: currentMoney + 20000 * (players.length - 1) }).eq('id', myPlayer.id);
-        break;
-      case 'collect_30_all':
-        for (const p of players) if (p.id !== myPlayer.id) await supabase.from('players').update({ money: Math.max(0, p.money - 30000) }).eq('id', p.id);
-        await supabase.from('players').update({ money: currentMoney + 30000 * (players.length - 1) }).eq('id', myPlayer.id);
-        break;
-      case 'collect_50_all':
-        for (const p of players) if (p.id !== myPlayer.id) await supabase.from('players').update({ money: Math.max(0, p.money - 50000) }).eq('id', p.id);
-        await supabase.from('players').update({ money: currentMoney + 50000 * (players.length - 1) }).eq('id', myPlayer.id);
-        break;
-      case 'collect_100_all':
-        for (const p of players) if (p.id !== myPlayer.id) await supabase.from('players').update({ money: Math.max(0, p.money - 100000) }).eq('id', p.id);
-        await supabase.from('players').update({ money: currentMoney + 100000 * (players.length - 1) }).eq('id', myPlayer.id);
-        break;
-      case 'collect_bank_50':
-        await supabase.from('players').update({ money: currentMoney + 50000 }).eq('id', myPlayer.id); break;
-      case 'collect_bank_100':
-        await supabase.from('players').update({ money: currentMoney + 100000 }).eq('id', myPlayer.id); break;
-      case 'collect_bank_150':
-        await supabase.from('players').update({ money: currentMoney + 150000 }).eq('id', myPlayer.id); break;
-      case 'collect_bank_200':
-        await supabase.from('players').update({ money: currentMoney + 200000 }).eq('id', myPlayer.id); break;
-      case 'pay_bank_50':
-        await supabase.from('players').update({ money: Math.max(0, currentMoney - 50000) }).eq('id', myPlayer.id); break;
-      case 'pay_bank_100':
-        await supabase.from('players').update({ money: Math.max(0, currentMoney - 100000) }).eq('id', myPlayer.id); break;
-      case 'pay_bank_200':
-        await supabase.from('players').update({ money: Math.max(0, currentMoney - 200000) }).eq('id', myPlayer.id); break;
+      case 'collect_20_all':  await collectFromAll(20000); break;
+      case 'collect_30_all':  await collectFromAll(30000); break;
+      case 'collect_50_all':  await collectFromAll(50000); break;
+      case 'collect_100_all': await collectFromAll(100000); break;
+      case 'collect_bank_50':  await adjustMoney(me, 50000); break;
+      case 'collect_bank_100': await adjustMoney(me, 100000); break;
+      case 'collect_bank_150': await adjustMoney(me, 150000); break;
+      case 'collect_bank_200': await adjustMoney(me, 200000); break;
+      case 'pay_bank_50':  await adjustMoney(me, -50000); break;
+      case 'pay_bank_100': await adjustMoney(me, -100000); break;
+      case 'pay_bank_200': await adjustMoney(me, -200000); break;
       case 'all_drink_1':
-        for (const p of players) await supabase.from('players').update({ shots_owed: p.shots_owed + 1 }).eq('id', p.id); break;
+        for (const p of players) await adjustShots(p.id, 1); break;
       case 'all_drink_2':
-        for (const p of players) await supabase.from('players').update({ shots_owed: p.shots_owed + 2 }).eq('id', p.id); break;
+        for (const p of players) await adjustShots(p.id, 2); break;
       case 'others_drink_1':
-        for (const p of players) if (p.id !== myPlayer.id) await supabase.from('players').update({ shots_owed: p.shots_owed + 1 }).eq('id', p.id); break;
-      case 'self_drink_1':
-        await supabase.from('players').update({ shots_owed: myPlayer.shots_owed + 1 }).eq('id', myPlayer.id); break;
-      case 'self_drink_2':
-        await supabase.from('players').update({ shots_owed: myPlayer.shots_owed + 2 }).eq('id', myPlayer.id); break;
-      case 'self_drink_3':
-        await supabase.from('players').update({ shots_owed: myPlayer.shots_owed + 3 }).eq('id', myPlayer.id); break;
-      case 'remove_1_shot':
-        await supabase.from('players').update({ shots_owed: Math.max(0, myPlayer.shots_owed - 1) }).eq('id', myPlayer.id); break;
-      case 'give_1_shot':
-        await supabase.from('players').update({ shots_owed: left.shots_owed + 1 }).eq('id', left.id); break;
-      case 'give_2_shots':
-        await supabase.from('players').update({ shots_owed: left.shots_owed + 2 }).eq('id', left.id); break;
-      case 'give_3_shots':
-        await supabase.from('players').update({ shots_owed: left.shots_owed + 3 }).eq('id', left.id); break;
-      case 'give_shots_right':
-        await supabase.from('players').update({ shots_owed: right.shots_owed + 2 }).eq('id', right.id); break;
+        for (const p of others) await adjustShots(p.id, 1); break;
+      case 'self_drink_1':   await adjustShots(me, 1); break;
+      case 'self_drink_2':   await adjustShots(me, 2); break;
+      case 'self_drink_3':   await adjustShots(me, 3); break;
+      case 'remove_1_shot':  await adjustShots(me, -1); break;
+      case 'give_1_shot':    await adjustShots(left.id, 1); break;
+      case 'give_2_shots':   await adjustShots(left.id, 2); break;
+      case 'give_3_shots':   await adjustShots(left.id, 3); break;
+      case 'give_shots_right': await adjustShots(right.id, 2); break;
       case 'advance_go':
-        await supabase.from('players').update({ position: 0, money: currentMoney + 200000 }).eq('id', myPlayer.id); break;
+        await supabase.from('players').update({ position: 0 }).eq('id', me);
+        await adjustMoney(me, 200000);
+        break;
       case 'go_to_jail_effect':
-        await supabase.from('players').update({ position: 7 }).eq('id', myPlayer.id); break;
+        // The card says "go to jail" — actually jail them (was missing jail_turns)
+        await supabase.from('players').update({ position: 7, jail_turns: 3 }).eq('id', me);
+        break;
       case 'advance_3': {
         const np = (myPlayer.position + 3) % BOARD_SIZE;
-        await supabase.from('players').update({ position: np }).eq('id', myPlayer.id); break;
+        await supabase.from('players').update({ position: np }).eq('id', me); break;
       }
       case 'advance_5': {
         const np = (myPlayer.position + 5) % BOARD_SIZE;
-        await supabase.from('players').update({ position: np }).eq('id', myPlayer.id); break;
+        await supabase.from('players').update({ position: np }).eq('id', me); break;
       }
       case 'back_2': {
         const np = ((myPlayer.position - 2) + BOARD_SIZE) % BOARD_SIZE;
-        await supabase.from('players').update({ position: np }).eq('id', myPlayer.id); break;
+        await supabase.from('players').update({ position: np }).eq('id', me); break;
       }
       case 'back_3': {
         const np = ((myPlayer.position - 3) + BOARD_SIZE) % BOARD_SIZE;
-        await supabase.from('players').update({ position: np }).eq('id', myPlayer.id); break;
+        await supabase.from('players').update({ position: np }).eq('id', me); break;
       }
       case 'swap_left': {
         if (players.length < 2) break;
-        await supabase.from('players').update({ position: left.position }).eq('id', myPlayer.id);
+        await supabase.from('players').update({ position: left.position }).eq('id', me);
         await supabase.from('players').update({ position: myPlayer.position }).eq('id', left.id); break;
       }
       case 'rotate_positions': {
@@ -416,38 +443,45 @@ export default function GameScreen() {
         break;
       }
       case 'collect_bank_300_drink_3':
-        await supabase.from('players').update({ money: currentMoney + 300000, shots_owed: myPlayer.shots_owed + 3 }).eq('id', myPlayer.id); break;
+        await adjustMoney(me, 300000);
+        await adjustShots(me, 3);
+        break;
       case 'collect_bank_100_drink_2':
-        await supabase.from('players').update({ money: currentMoney + 100000, shots_owed: myPlayer.shots_owed + 2 }).eq('id', myPlayer.id); break;
+        await adjustMoney(me, 100000);
+        await adjustShots(me, 2);
+        break;
       case 'pay_advance_3': {
         const np = (myPlayer.position + 3) % BOARD_SIZE;
-        await supabase.from('players').update({ money: Math.max(0, currentMoney - 100000), position: np }).eq('id', myPlayer.id); break;
+        await adjustMoney(me, -100000);
+        await supabase.from('players').update({ position: np }).eq('id', me); break;
       }
       case 'advance_3_collect_50': {
         const np = (myPlayer.position + 3) % BOARD_SIZE;
-        await supabase.from('players').update({ position: np, money: currentMoney + 50000 }).eq('id', myPlayer.id); break;
+        await adjustMoney(me, 50000);
+        await supabase.from('players').update({ position: np }).eq('id', me); break;
       }
       case 'drink_back_2': {
         const np = ((myPlayer.position - 2) + BOARD_SIZE) % BOARD_SIZE;
-        await supabase.from('players').update({ shots_owed: myPlayer.shots_owed + 1, position: np }).eq('id', myPlayer.id); break;
+        await adjustShots(me, 1);
+        await supabase.from('players').update({ position: np }).eq('id', me); break;
       }
       case 'others_pay_bank_50':
-        for (const p of players) if (p.id !== myPlayer.id) await supabase.from('players').update({ money: Math.max(0, p.money - 50000) }).eq('id', p.id); break;
+        for (const p of others) await adjustMoney(p.id, -50000); break;
       case 'poorest_collects': {
         const poorest = players.reduce((a, b) => a.money <= b.money ? a : b);
-        for (const p of players) if (p.id !== poorest.id) await supabase.from('players').update({ money: Math.max(0, p.money - 100000) }).eq('id', p.id);
-        await supabase.from('players').update({ money: poorest.money + 100000 * (players.length - 1) }).eq('id', poorest.id); break;
+        for (const p of players) if (p.id !== poorest.id) await transferMoney(p.id, poorest.id, 100000);
+        break;
       }
       case 'richest_drinks_per_player': {
         const richest = players.reduce((a, b) => a.money >= b.money ? a : b);
-        await supabase.from('players').update({ shots_owed: richest.shots_owed + (players.length - 1) }).eq('id', richest.id); break;
+        await adjustShots(richest.id, players.length - 1); break;
       }
       case 'all_except_poorest_drink': {
         const poorest = players.reduce((a, b) => a.money <= b.money ? a : b);
-        for (const p of players) if (p.id !== poorest.id) await supabase.from('players').update({ shots_owed: p.shots_owed + 1 }).eq('id', p.id); break;
+        for (const p of players) if (p.id !== poorest.id) await adjustShots(p.id, 1); break;
       }
       case 'roll_again':
-        await supabase.from('game_states').update({ phase: 'rolling' }).eq('id', gameState.id);
+        hasRolledRef.current = false;
         setModal(null);
         return;
     }
@@ -462,12 +496,12 @@ export default function GameScreen() {
     if (bail) {
       if (myPlayer.money < 50000) {
         showNotification(t('no_funds_title', locale), t('no_bail_funds', locale), '#5A6378');
+        notifContinuationRef.current = () => setModal({ kind: 'jail_choice' });
         return;
       }
-      await supabase.from('players').update({ money: myPlayer.money - 50000, jail_turns: 0 }).eq('id', myPlayer.id);
-      // Keep current player — they roll this turn
-      await supabase.from('game_states').update({ phase: 'rolling' }).eq('id', gameState.id);
-      setGameState(prev => prev ? { ...prev, phase: 'rolling' } : prev);
+      await adjustMoney(myPlayer.id, -50000);
+      await supabase.from('players').update({ jail_turns: 0 }).eq('id', myPlayer.id);
+      setMyPlayer(prev => prev ? { ...prev, money: prev.money - 50000, jail_turns: 0 } : prev);
     } else {
       const { data: fresh } = await supabase.from('players').select('jail_turns').eq('id', myPlayer.id).single();
       const remaining = Math.max(0, (fresh?.jail_turns ?? 0) - 1);
@@ -487,13 +521,12 @@ export default function GameScreen() {
     if (!myPlayer) return;
     const space = getBoardSpace(position);
     const salePrice = Math.floor((space.price ?? 0) * 0.5);
-    const { data: fresh } = await supabase.from('players').select('money, properties').eq('id', myPlayer.id).single();
-    const currentMoney = fresh?.money ?? myPlayer.money;
+    const { data: fresh } = await supabase.from('players').select('properties').eq('id', myPlayer.id).single();
     const currentProps = (fresh?.properties as number[] ?? []);
     await supabase.from('players').update({
-      money: currentMoney + salePrice,
       properties: currentProps.filter(p => p !== position),
     }).eq('id', myPlayer.id);
+    await adjustMoney(myPlayer.id, salePrice);
     await advanceTurn();
   }
 
@@ -502,32 +535,7 @@ export default function GameScreen() {
   async function handleDrinkShot(playerId: string) {
     const p = players.find(pl => pl.id === playerId);
     if (!p || p.shots_owed <= 0) return;
-    await supabase.from('players').update({ shots_owed: p.shots_owed - 1 }).eq('id', p.id);
-  }
-
-  // ── winner detection ──────────────────────────────────────────────────────────
-
-  function checkWinner(all: Player[]): boolean {
-    if (all.length < 2) return false;
-    const solvent = all.filter(p => p.money > 0);
-    if (solvent.length !== 1) return false;
-    const w    = solvent[0];
-    const wIdx = all.findIndex(p => p.id === w.id);
-    const standings = [...all]
-      .sort((a, b) => b.money - a.money)
-      .map(p => ({
-        name:  p.name,
-        money: p.money,
-        shots: p.shots_owed,
-        emoji: PLAYER_EMOJIS[all.findIndex(pl => pl.id === p.id) % PLAYER_EMOJIS.length],
-      }));
-    setModal({
-      kind: 'winner',
-      winnerName:     w.name,
-      winnerEmoji:    PLAYER_EMOJIS[wIdx >= 0 ? wIdx % PLAYER_EMOJIS.length : 0],
-      finalStandings: standings,
-    });
-    return true;
+    await adjustShots(playerId, -1);
   }
 
   // ── exit game ────────────────────────────────────────────────────────────────
@@ -556,18 +564,14 @@ export default function GameScreen() {
 
   async function handlePayRent(choice: 'full' | 'discount') {
     if (!modal || modal.kind !== 'pay_rent' || !myPlayer) return;
-    const { ownerId, ownerMoney, leveledRent, leveledSips } = modal;
+    const { ownerId, leveledRent, leveledSips } = modal;
     const discountedRent = Math.max(0, Math.round(leveledRent * 0.5 / 10000) * 10000);
     playSound('rent');
     if (choice === 'full') {
-      await supabase.from('players').update({ money: Math.max(0, myPlayer.money - leveledRent) }).eq('id', myPlayer.id);
-      await supabase.from('players').update({ money: ownerMoney + leveledRent }).eq('id', ownerId);
+      await transferMoney(myPlayer.id, ownerId, leveledRent);
     } else {
-      await supabase.from('players').update({
-        money: Math.max(0, myPlayer.money - discountedRent),
-        shots_owed: myPlayer.shots_owed + leveledSips,
-      }).eq('id', myPlayer.id);
-      await supabase.from('players').update({ money: ownerMoney + discountedRent }).eq('id', ownerId);
+      await transferMoney(myPlayer.id, ownerId, discountedRent);
+      await adjustShots(myPlayer.id, leveledSips);
     }
     await advanceTurn();
   }
@@ -575,35 +579,33 @@ export default function GameScreen() {
   // ── turn / buy / upgrade ──────────────────────────────────────────────────────
 
   async function advanceTurn() {
-    if (!gameState) return;
+    if (!gameState || gameState.phase !== 'rolling') return;
     const rid = roomIdRef.current ?? gameState.room_id;
     const { data: freshPs } = await supabase
       .from('players').select().eq('room_id', rid).order('created_at', { ascending: true });
     const all = freshPs ?? players;
 
-    if (checkWinner(all)) return;
-
-    // Skip bankrupt players (money <= 0)
-    const ci = all.findIndex(p => p.id === gameState.current_player_id);
-    let nextIdx = (ci + 1) % all.length;
-    for (let attempts = 0; attempts < all.length && all[nextIdx].money <= 0; attempts++) {
-      nextIdx = (nextIdx + 1) % all.length;
+    // End condition 1: turn budget exhausted → biggest fortune wins.
+    // End condition 2: everyone but one player is bankrupt.
+    const solvent = all.filter(p => p.money > 0);
+    const budgetDone = gameState.turn_number >= (gameState.max_turns ?? Number.MAX_SAFE_INTEGER);
+    if ((all.length >= 2 && solvent.length <= 1) || budgetDone) {
+      await endGame(gameState.id, rid);
+      // Local fallback in case realtime is slow/down — every other client
+      // gets the same flip through the game_states subscription.
+      setGameState(prev => prev ? { ...prev, phase: 'ended' } : prev);
+      setPlayers(all);
+      setModal(null); setLastRoll(null); setLandedSpace(null);
+      return;
     }
-    const next = all[nextIdx];
-    const nextGs: GameState = {
-      ...gameState,
-      current_player_id: next.id,
-      turn_number: gameState.turn_number + 1,
-      dice_result: null,
-      phase: 'rolling',
-    };
-    await supabase.from('game_states').update({
-      current_player_id: nextGs.current_player_id,
-      turn_number: nextGs.turn_number,
-      dice_result: null, phase: 'rolling',
-    }).eq('id', gameState.id);
+
+    // Guarded advance: if two clients race (e.g. double "skip idle"), only
+    // the first call passes; the duplicate is a no-op.
+    await advanceTurnGuarded(gameState.id, gameState.turn_number, rid);
+    const { data: freshGs } = await supabase
+      .from('game_states').select().eq('id', gameState.id).single();
     // ← critical: update gameState locally so the writer's isMyTurn flips immediately
-    setGameState(nextGs);
+    if (freshGs) setGameState(freshGs);
     setPlayers(all);
     setMyPlayer(all.find(p => p.id === myPlayerIdRef.current) ?? null);
     setModal(null); setLastRoll(null); setLandedSpace(null);
@@ -630,14 +632,24 @@ export default function GameScreen() {
     const currentShots = fresh?.shots_owed ?? myPlayer.shots_owed;
     const currentProps = (fresh?.properties as number[] | null) ?? (myPlayer.properties as number[] ?? []);
 
+    const reopenBuy = () => { notifContinuationRef.current = () => setModal({ kind: 'buy', space }); };
+
     if (option === 'full') {
-      if (currentMoney < fullPrice) { showNotification(t('no_funds_title', locale), t('no_funds_msg', locale), '#5A6378'); return; }
+      if (currentMoney < fullPrice) {
+        showNotification(t('no_funds_title', locale), t('no_funds_msg', locale), '#5A6378');
+        reopenBuy();
+        return;
+      }
       await supabase.from('players').update({
         money: currentMoney - fullPrice,
         properties: [...currentProps, space.position],
       }).eq('id', myPlayer.id);
     } else {
-      if (currentMoney < discountedPrice) { showNotification(t('no_funds_title', locale), t('no_funds_msg', locale), '#5A6378'); return; }
+      if (currentMoney < discountedPrice) {
+        showNotification(t('no_funds_title', locale), t('no_funds_msg', locale), '#5A6378');
+        reopenBuy();
+        return;
+      }
       await supabase.from('players').update({
         money: currentMoney - discountedPrice,
         shots_owed: currentShots + sips,
@@ -676,22 +688,19 @@ export default function GameScreen() {
   const myJailTurns   = myPlayer?.jail_turns ?? 0;
   const isJailed      = isMyTurn && myJailTurns > 0;
 
-  console.log('[dice]', {
-    myPlayerId:      myPlayer?.id ?? null,
-    currentPlayerId: gameState.current_player_id,
-    isMyTurn,
-    isHost:          myPlayer?.is_host ?? false,
-  });
-
   const myPlayerIdx   = players.findIndex(p => p.id === myPlayer?.id);
   const myPlayerEmoji = PLAYER_EMOJIS[myPlayerIdx >= 0 ? myPlayerIdx % PLAYER_EMOJIS.length : 0];
 
+  const nPlayers      = Math.max(1, players.length);
+  const currentRound  = Math.min(Math.ceil(gameState.turn_number / nPlayers), Math.ceil((gameState.max_turns ?? gameState.turn_number) / nPlayers));
+  const totalRounds   = Math.max(1, Math.ceil((gameState.max_turns ?? gameState.turn_number) / nPlayers));
+
   return (
     <View style={gs.screen}>
-      <View style={gs.header}>
-        <Text style={gs.headerSub}>{t('room_round', locale, { code: roomCode, n: gameState.turn_number })}</Text>
+      <View style={[gs.header, { paddingTop: insets.top + 8 }]}>
+        <Text style={gs.headerSub}>{t('round_of', locale, { code: roomCode, r: currentRound, rt: totalRounds })}</Text>
         <Text style={gs.headerTitle}>SHOTOPOLY</Text>
-        <TouchableOpacity style={gs.exitBtn} onPress={exitGame}>
+        <TouchableOpacity style={[gs.exitBtn, { top: insets.top + 8 }]} onPress={exitGame}>
           <Text style={gs.exitTxt}>{t('exit', locale)}</Text>
         </TouchableOpacity>
       </View>
@@ -700,7 +709,7 @@ export default function GameScreen() {
         <Board
           players={players}
           boardWidth={boardWidth}
-          turnNumber={gameState.turn_number}
+          turnNumber={currentRound}
           propLevels={propLevels}
           animPositions={animPositions}
         />
@@ -732,7 +741,7 @@ export default function GameScreen() {
         <TouchableOpacity
           style={[gs.diceBtn, (!isMyTurn || isJailed) && gs.diceDim]}
           onPress={() => {
-            if (!isMyTurn || rolling || isJailed) return;
+            if (!isMyTurn || rolling || isJailed || hasRolledRef.current) return;
             setDiceVisible(true);
           }}
           disabled={!isMyTurn || rolling}
@@ -921,15 +930,49 @@ export default function GameScreen() {
               <View style={gs.notifBody}>
                 <Text style={{ fontSize: 48, textAlign: 'center' }}>{modal.winnerEmoji}</Text>
                 <Text style={[gs.notifTitle, { color: C.gold, fontSize: 18 }]}>{t('winner_title', locale, { name: modal.winnerName })}</Text>
+                <Text style={{ color: C.textDim, fontSize: 12, textAlign: 'center', marginBottom: 8 }}>
+                  {t('game_over_sub', locale, { n: modal.totalRounds })}
+                </Text>
                 {modal.finalStandings.map((s, i) => (
                   <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
                     <Text style={{ color: i === 0 ? C.gold : C.textDim, fontSize: 14 }}>{s.emoji} {s.name}</Text>
-                    <Text style={{ color: C.textDim, fontSize: 13 }}>{formatMoney(s.money)}  🥃×{s.shots}</Text>
+                    <Text style={{ color: C.textDim, fontSize: 13 }}>{formatMoney(s.worth)}  🥃×{s.shots}</Text>
                   </View>
                 ))}
                 <TouchableOpacity style={[gs.notifBtn, { backgroundColor: C.gold, marginTop: 24 }]} onPress={exitGame}>
                   <Text style={[gs.notifBtnTxt, { color: '#1a1409' }]}>{t('back_home', locale)}</Text>
                 </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
+      </Modal>
+
+      {/* ── CLAIM IDENTITY (unknown device) ── */}
+      <Modal visible={modal?.kind === 'claim'} transparent animationType="fade">
+        {modal?.kind === 'claim' && (
+          <View style={gs.notifOverlay}>
+            <View style={[gs.notifCard, { borderColor: C.gold + '55' }]}>
+              <View style={[gs.notifAccent, { backgroundColor: C.gold }]} />
+              <View style={gs.notifBody}>
+                <Text style={[gs.notifTitle, { color: C.gold }]}>{t('claim_title', locale)}</Text>
+                <Text style={{ color: C.textDim, fontSize: 14, textAlign: 'center', marginBottom: 16 }}>
+                  {t('claim_msg', locale)}
+                </Text>
+                {players.map((p, idx) => (
+                  <TouchableOpacity
+                    key={p.id}
+                    style={[gs.btnGhost, { marginTop: 8, flexDirection: 'row', justifyContent: 'center', gap: 8 }]}
+                    onPress={async () => {
+                      const rid = roomIdRef.current ?? p.room_id;
+                      await claimIdentity(p, rid);
+                      setModal(null);
+                    }}
+                  >
+                    <Text style={{ fontSize: 18 }}>{PLAYER_EMOJIS[idx % PLAYER_EMOJIS.length]}</Text>
+                    <Text style={[gs.btnGhostTxt, { color: '#fff' }]}>{p.name}</Text>
+                  </TouchableOpacity>
+                ))}
               </View>
             </View>
           </View>
@@ -968,7 +1011,7 @@ const gs = StyleSheet.create({
 
   header:      { alignItems: 'center', paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 },
   headerSub:   { fontSize: 9, color: C.textFaint, letterSpacing: 1.5, textTransform: 'uppercase' },
-  headerTitle: { fontSize: 15, fontWeight: '700', color: C.gold, letterSpacing: 0.3 },
+  headerTitle: { fontSize: 17, fontFamily: FONTS.display, color: C.gold, letterSpacing: 1 },
   exitBtn:     { position: 'absolute', right: 16, top: 8, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, backgroundColor: '#E94560' },
   exitTxt:     { fontSize: 11, color: '#fff', fontWeight: '700' },
 
@@ -983,7 +1026,7 @@ const gs = StyleSheet.create({
 
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'flex-end' },
   mCard:   { backgroundColor: '#1a1f35', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 28, paddingBottom: 44, borderTopWidth: 1, borderTopColor: 'rgba(255,210,63,0.3)' },
-  mTitle:   { color: C.gold, fontSize: 20, fontWeight: '800', textAlign: 'center', marginBottom: 12 },
+  mTitle:   { color: C.gold, fontSize: 20, fontFamily: FONTS.display, textAlign: 'center', marginBottom: 12, letterSpacing: 0.5 },
   colorBar: { height: 6, borderRadius: 3, marginBottom: 12 },
   mName:    { color: '#fff', fontSize: 22, fontWeight: '700', textAlign: 'center', marginBottom: 6 },
   mSub:     { color: C.textDim, fontSize: 15, textAlign: 'center', marginBottom: 8 },

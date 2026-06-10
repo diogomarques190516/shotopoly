@@ -9,10 +9,6 @@ export function generateRoomCode(): string {
   return code;
 }
 
-export function rollDice(): number {
-  return Math.floor(Math.random() * 6) + 1 + Math.floor(Math.random() * 6) + 1;
-}
-
 // 28-space board — 8×8 grid perimeter
 // Bottom row right→left (0-7), left col bottom→top (7-14),
 // top row left→right (14-21), right col top→bottom (21-27)

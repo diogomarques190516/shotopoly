@@ -17,6 +17,7 @@ import { supabase } from '../lib/supabase';
 import { generateRoomCode } from '../lib/gameLogic';
 import { getLocale, t } from '../lib/i18n';
 import { getRulesSections } from '../lib/rules';
+import { FONTS } from '../constants/gameConstants';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -66,7 +67,7 @@ export default function HomeScreen() {
   if (restoring) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#f5c518" />
+        <ActivityIndicator size="large" color="#FFD23F" />
       </View>
     );
   }
@@ -126,15 +127,45 @@ export default function HomeScreen() {
     try {
       const code = joinCode.trim().toUpperCase();
 
-      const { data: room, error: roomError } = await supabase
+      const { data: rooms } = await supabase
         .from('rooms')
         .select()
         .eq('code', code)
-        .eq('status', 'waiting')
-        .single();
+        .neq('status', 'finished')
+        .order('created_at', { ascending: false })
+        .limit(1);
+      const room = rooms?.[0];
 
-      if (roomError || !room) {
+      if (!room) {
         showAlert(t('err_title', locale), t('err_room', locale));
+        return;
+      }
+
+      // Game already running: let a player rejoin from a new device by name
+      if (room.status === 'playing') {
+        const { data: existing } = await supabase
+          .from('players')
+          .select('id')
+          .eq('room_id', room.id)
+          .ilike('name', playerName.trim())
+          .maybeSingle();
+        if (!existing) {
+          showAlert(t('err_title', locale), t('err_started', locale));
+          return;
+        }
+        const { data: gs } = await supabase
+          .from('game_states')
+          .select('id')
+          .eq('room_id', room.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (!gs) {
+          showAlert(t('err_title', locale), t('err_generic', locale));
+          return;
+        }
+        await AsyncStorage.setItem(`player_id_${room.id}`, existing.id);
+        router.push(`/game/${gs.id}`);
         return;
       }
 
@@ -204,7 +235,7 @@ export default function HomeScreen() {
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color="#1a0a2e" />
+              <ActivityIndicator color="#1a1409" />
             ) : (
               <Text style={styles.btnPrimaryText}>{t('create_game', locale)}</Text>
             )}
@@ -235,7 +266,7 @@ export default function HomeScreen() {
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color="#f5c518" />
+              <ActivityIndicator color="#FFD23F" />
             ) : (
               <Text style={styles.btnSecondaryText}>{t('join_game', locale)}</Text>
             )}
@@ -286,14 +317,19 @@ export default function HomeScreen() {
   );
 }
 
+const GOLD = '#FFD23F';
+const BG   = '#0a0d18';
+const CARD = '#13182a';
+const INK  = '#1a1409';
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a0a2e',
+    backgroundColor: BG,
   },
   center: {
     flex: 1,
-    backgroundColor: '#1a0a2e',
+    backgroundColor: BG,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -308,67 +344,69 @@ const styles = StyleSheet.create({
     marginBottom: 36,
   },
   title: {
-    fontSize: 48,
-    fontWeight: '900',
-    color: '#f5c518',
-    letterSpacing: 4,
-    textShadowColor: '#ff6b35',
-    textShadowOffset: { width: 2, height: 2 },
-    textShadowRadius: 8,
+    fontSize: 46,
+    fontFamily: FONTS.display,
+    color: GOLD,
+    letterSpacing: 3,
+    textShadowColor: 'rgba(233,69,96,0.85)',
+    textShadowOffset: { width: 3, height: 3 },
+    textShadowRadius: 0,
   },
   emoji: {
     fontSize: 56,
     marginVertical: 8,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#aaa',
+    fontSize: 15,
+    fontFamily: FONTS.body,
+    color: '#9aa0b5',
     letterSpacing: 1,
   },
   card: {
-    backgroundColor: '#2a1a4e',
+    backgroundColor: CARD,
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#3a2a6e',
+    borderColor: 'rgba(255,255,255,0.08)',
   },
   label: {
-    color: '#f5c518',
-    fontSize: 14,
-    fontWeight: '700',
+    color: GOLD,
+    fontSize: 13,
+    fontFamily: FONTS.bodyHeavy,
     marginBottom: 8,
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
   input: {
-    backgroundColor: '#1a0a2e',
+    backgroundColor: BG,
     borderRadius: 10,
     paddingHorizontal: 16,
     paddingVertical: 14,
     color: '#fff',
     fontSize: 16,
+    fontFamily: FONTS.body,
     borderWidth: 1,
-    borderColor: '#3a2a6e',
+    borderColor: 'rgba(255,255,255,0.12)',
     marginBottom: 16,
   },
   codeInput: {
     fontSize: 24,
-    fontWeight: '700',
+    fontFamily: FONTS.bodyHeavy,
     textAlign: 'center',
     letterSpacing: 8,
-    color: '#f5c518',
+    color: GOLD,
   },
   btnPrimary: {
-    backgroundColor: '#f5c518',
+    backgroundColor: GOLD,
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
   },
   btnPrimaryText: {
-    color: '#1a0a2e',
+    color: INK,
     fontSize: 18,
-    fontWeight: '800',
+    fontFamily: FONTS.bodyHeavy,
   },
   btnSecondary: {
     backgroundColor: 'transparent',
@@ -376,12 +414,12 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#f5c518',
+    borderColor: GOLD,
   },
   btnSecondaryText: {
-    color: '#f5c518',
+    color: GOLD,
     fontSize: 18,
-    fontWeight: '800',
+    fontFamily: FONTS.bodyHeavy,
   },
   btnDisabled: {
     opacity: 0.5,
@@ -394,11 +432,12 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#3a2a6e',
+    backgroundColor: 'rgba(255,255,255,0.12)',
   },
   dividerText: {
-    color: '#aaa',
+    color: '#9aa0b5',
     fontSize: 13,
+    fontFamily: FONTS.body,
     marginHorizontal: 12,
   },
   rulesBtn: {
@@ -407,25 +446,26 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#3a2a6e',
+    borderColor: 'rgba(255,255,255,0.12)',
   },
   rulesBtnText: {
-    color: '#aaa',
+    color: '#9aa0b5',
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: FONTS.bodyBold,
     letterSpacing: 0.5,
   },
   footer: {
     textAlign: 'center',
-    color: '#555',
+    color: '#5a6070',
     fontSize: 12,
+    fontFamily: FONTS.body,
     marginTop: 16,
   },
 
   // Rules modal
   rulesContainer: {
     flex: 1,
-    backgroundColor: '#0f0a1e',
+    backgroundColor: BG,
   },
   rulesHeader: {
     flexDirection: 'row',
@@ -435,24 +475,26 @@ const styles = StyleSheet.create({
     paddingTop: 56,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#2a1a4e',
+    borderBottomColor: 'rgba(255,255,255,0.08)',
   },
   rulesTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#f5c518',
+    fontSize: 24,
+    fontFamily: FONTS.display,
+    color: GOLD,
     letterSpacing: 1,
   },
   rulesClose: {
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 8,
-    backgroundColor: '#2a1a4e',
+    backgroundColor: CARD,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   rulesCloseTxt: {
-    color: '#aaa',
+    color: '#9aa0b5',
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: FONTS.bodyBold,
   },
   rulesScroll: {
     paddingHorizontal: 20,
@@ -462,15 +504,16 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   rulesSectionTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#f5c518',
+    fontSize: 14,
+    fontFamily: FONTS.bodyHeavy,
+    color: GOLD,
     marginBottom: 8,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
   rulesSectionBody: {
     fontSize: 15,
+    fontFamily: FONTS.body,
     color: '#ccc',
     lineHeight: 23,
   },
@@ -487,31 +530,32 @@ const styles = StyleSheet.create({
     padding: 28,
     width: '100%',
     borderWidth: 1,
-    borderColor: 'rgba(245,197,24,0.25)',
+    borderColor: 'rgba(255,210,63,0.25)',
   },
   alertTitle: {
-    color: '#f5c518',
+    color: GOLD,
     fontSize: 18,
-    fontWeight: '800',
+    fontFamily: FONTS.bodyHeavy,
     textAlign: 'center',
     marginBottom: 10,
   },
   alertMessage: {
     color: '#ccc',
     fontSize: 15,
+    fontFamily: FONTS.body,
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 24,
   },
   alertBtn: {
-    backgroundColor: '#f5c518',
+    backgroundColor: GOLD,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
   },
   alertBtnText: {
-    color: '#1a0a2e',
+    color: INK,
     fontSize: 16,
-    fontWeight: '800',
+    fontFamily: FONTS.bodyHeavy,
   },
 });

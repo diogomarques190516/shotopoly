@@ -13,18 +13,49 @@ export const C = {
   green:     '#39FF8B',
 };
 
-export const PLAYER_COLORS = ['#FFD23F', '#39FF8B', '#B14CFF', '#FF6BD0', '#FF7F50', '#4FC3F7', '#81C784', '#FF8A65'];
+// Loaded in app/_layout.tsx; referenced by name everywhere else.
+export const FONTS = {
+  display:   'LuckiestGuy_400Regular',
+  body:      'Nunito_600SemiBold',
+  bodyBold:  'Nunito_700Bold',
+  bodyHeavy: 'Nunito_800ExtraBold',
+};
+
+export const PLAYER_COLORS = ['#FFD23F', '#39FF8B', '#FF5252', '#FF6BD0', '#FF7F50', '#4FC3F7', '#81C784', '#FF8A65'];
 export const PLAYER_EMOJIS = ['🦊', '🐻', '🐸', '🐼', '🦁', '🐯', '🐺', '🦝'];
 export const CORNER_TYPES  = new Set(['go', 'jail', 'free_parking', 'go_to_jail']);
 export const UPGRADE_COST  = [0, 200000, 400000]; // cost to reach level 2, level 3
 
+// Average seconds one turn takes in a real group (roll + animation + decision
+// + drinking). Used to convert a target game duration into a turn budget.
+export const SECONDS_PER_TURN = 35;
+
+export const GAME_DURATIONS = [
+  { key: 'fast',     minutes: 20 },
+  { key: 'classic',  minutes: 35 },
+  { key: 'marathon', minutes: 50 },
+] as const;
+
+// Turn budget for a target duration: total turns ≈ duration / avg turn time,
+// rounded to a multiple of the player count so everyone plays the same
+// number of rounds. This is what guarantees the 30–45 minute game.
+export function calcMaxTurns(minutes: number, playerCount: number): number {
+  const totalTurns = Math.round((minutes * 60) / SECONDS_PER_TURN);
+  const rounds = Math.max(4, Math.round(totalTurns / Math.max(1, playerCount)));
+  return rounds * Math.max(1, playerCount);
+}
+
 export function formatMoney(v: number): string {
+  if (Math.abs(v) >= 1000000) {
+    const m = v / 1000000;
+    return `€${Number.isInteger(m) ? m : m.toFixed(1)}M`;
+  }
   return `€${Math.floor(v / 1000)}k`;
 }
 
 export function getBandColor(space: BoardSpace): string | undefined {
   if (space.type === 'property') return space.color;
-  if (space.type === 'event')    return '#7B3FE4';
+  if (space.type === 'event')    return '#00C2D1';
   if (space.type === 'tax')      return '#5A6378';
   return undefined;
 }

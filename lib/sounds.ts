@@ -1,11 +1,11 @@
-import { Audio } from 'expo-av';
-import * as FileSystem from 'expo-file-system';
+import { createAudioPlayer, setAudioModeAsync, AudioPlayer } from 'expo-audio';
+import { File, Paths } from 'expo-file-system';
 
-// Generate a WAV file as base64 using pure JS (no native modules needed).
+// Generate a WAV file using pure JS (no bundled assets needed).
 // 8-bit, mono, 8000 Hz sample rate.
 function buildWav(
   notes: Array<{ freq: number; durationMs: number; volume?: number }>,
-): string {
+): Uint8Array {
   const SR = 8000;
   const totalSamples = notes.reduce((s, n) => s + Math.floor(SR * n.durationMs / 1000), 0);
   const buf = new ArrayBuffer(44 + totalSamples);
@@ -37,10 +37,7 @@ function buildWav(
     }
   }
 
-  const bytes = new Uint8Array(buf);
-  let b = '';
-  for (let i = 0; i < bytes.length; i++) b += String.fromCharCode(bytes[i]);
-  return btoa(b);
+  return new Uint8Array(buf);
 }
 
 type SoundName = 'dice' | 'hop' | 'buy' | 'rent' | 'card' | 'jail' | 'go';
@@ -75,18 +72,16 @@ const SOUND_DEFS: Record<SoundName, Array<{ freq: number; durationMs: number; vo
   ],
 };
 
-const cache: Partial<Record<SoundName, Audio.Sound>> = {};
+const cache: Partial<Record<SoundName, AudioPlayer>> = {};
 
 export async function initSounds() {
   try {
-    await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
+    await setAudioModeAsync({ playsInSilentMode: true });
     for (const [name, notes] of Object.entries(SOUND_DEFS) as Array<[SoundName, typeof SOUND_DEFS[SoundName]]>) {
       try {
-        const b64 = buildWav(notes);
-        const path = `${FileSystem.cacheDirectory}snd_${name}.wav`;
-        await FileSystem.writeAsStringAsync(path, b64, { encoding: FileSystem.EncodingType.Base64 });
-        const { sound } = await Audio.Sound.createAsync({ uri: path }, { shouldPlay: false, volume: 1 });
-        cache[name] = sound;
+        const file = new File(Paths.cache, `snd_${name}.wav`);
+        file.write(buildWav(notes));
+        cache[name] = createAudioPlayer({ uri: file.uri });
       } catch (e) {
         // non-fatal — just no sound for this effect
       }
@@ -94,11 +89,11 @@ export async function initSounds() {
   } catch {}
 }
 
-export async function playSound(name: SoundName) {
+export function playSound(name: SoundName) {
   try {
-    const s = cache[name];
-    if (!s) return;
-    await s.setPositionAsync(0);
-    await s.playAsync();
+    const p = cache[name];
+    if (!p) return;
+    p.seekTo(0);
+    p.play();
   } catch {}
 }

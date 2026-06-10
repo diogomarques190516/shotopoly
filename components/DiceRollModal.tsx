@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { View, Text, Modal, StyleSheet, Animated, Easing } from 'react-native';
 import { DieFace } from './DieFace';
-import { C } from '../constants/gameConstants';
+import { C, FONTS } from '../constants/gameConstants';
+import { getLocale, t } from '../lib/i18n';
 
 export function DiceRollModal({ visible, playerName, playerEmoji, onComplete }: {
   visible: boolean; playerName: string; playerEmoji: string;
@@ -108,7 +109,7 @@ export function DiceRollModal({ visible, playerName, playerEmoji, onComplete }: 
         <View style={s.glow} />
         {phase === 'rolling' ? (
           <>
-            <Text style={s.prompt}>· Rolando ·</Text>
+            <Text style={s.prompt}>· {t('dice_rolling', getLocale())} ·</Text>
             <View style={s.diceRow}>
               <Animated.View style={{ transform: [{ translateX: shake0 }, { translateY: shakeY0 }, { rotate: rotate0 }] }}>
                 <DieFace value={v1} />
@@ -120,17 +121,17 @@ export function DiceRollModal({ visible, playerName, playerEmoji, onComplete }: 
           </>
         ) : (
           <>
-            <Text style={s.prompt}>· Resultado ·</Text>
+            <Text style={s.prompt}>· {t('dice_result', getLocale())} ·</Text>
             <View style={s.diceRow}>
               <DieFace value={final1} />
               <DieFace value={final2} />
             </View>
             <View style={s.resultBlock}>
-              <Text style={s.totalLabel}>Total</Text>
+              <Text style={s.totalLabel}>{t('dice_total', getLocale())}</Text>
               <Text style={s.totalNum}>{final1 + final2}</Text>
               <View style={s.moveChip}>
                 <Text style={s.moveChipText}>
-                  {playerEmoji} {playerName} avança {final1 + final2}
+                  {playerEmoji} {t('dice_advance', getLocale(), { name: playerName, n: final1 + final2 })}
                 </Text>
               </View>
             </View>
@@ -148,7 +149,7 @@ const s = StyleSheet.create({
   diceRow:      { flexDirection: 'row', gap: 20 },
   resultBlock:  { alignItems: 'center', gap: 6 },
   totalLabel:   { fontSize: 9, color: 'rgba(255,255,255,0.45)', letterSpacing: 3, textTransform: 'uppercase' },
-  totalNum:     { fontSize: 80, fontWeight: '900', color: C.gold, letterSpacing: -2, lineHeight: 84 },
+  totalNum:     { fontSize: 80, fontFamily: FONTS.display, color: C.gold, lineHeight: 92 },
   moveChip:     { paddingHorizontal: 16, paddingVertical: 7, borderRadius: 999, backgroundColor: 'rgba(57,255,139,0.12)', borderWidth: 1, borderColor: 'rgba(57,255,139,0.4)' },
   moveChipText: { fontSize: 11, color: C.green, letterSpacing: 1.5, textTransform: 'uppercase', fontWeight: '600' },
 });

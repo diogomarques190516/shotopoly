@@ -2,7 +2,7 @@ import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { Player, BoardSpace } from '../lib/types';
 import { ALL_SPACES } from '../lib/gameLogic';
 import { C, PLAYER_COLORS, PLAYER_EMOJIS, formatMoney } from '../constants/gameConstants';
-import { getLocale, getSpaceName } from '../lib/i18n';
+import { getLocale, getSpaceName, t } from '../lib/i18n';
 
 export function PropertiesPanel({ players, currentPlayerId, myPlayerId, propLevels, onDrink }: {
   players: Player[];
@@ -25,7 +25,7 @@ export function PropertiesPanel({ players, currentPlayerId, myPlayerId, propLeve
       {withProps.length === 0 ? (
         <View style={{ paddingHorizontal: 14, paddingVertical: 10 }}>
           <Text style={{ fontSize: 10, color: C.textFaint, fontStyle: 'italic' }}>
-            Ainda não há propriedades compradas.
+            {t('no_props_yet', getLocale())}
           </Text>
         </View>
       ) : (

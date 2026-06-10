@@ -14,6 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../lib/supabase';
 import { getLocale, t } from '../../lib/i18n';
 import { Player, Room } from '../../lib/types';
+import { FONTS, GAME_DURATIONS, calcMaxTurns } from '../../constants/gameConstants';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 export default function LobbyScreen() {
@@ -26,6 +27,7 @@ export default function LobbyScreen() {
   const [myPlayer, setMyPlayer] = useState<Player | null>(null);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
+  const [duration, setDuration] = useState<typeof GAME_DURATIONS[number]>(GAME_DURATIONS[1]);
   const [alertModal, setAlertModal] = useState<{ title: string; message: string } | null>(null);
   const channelsRef = useRef<RealtimeChannel[]>([]);
 
@@ -65,14 +67,12 @@ export default function LobbyScreen() {
       if (playersErr) { console.error('[lobby] players query failed:', playersErr.message); }
       setPlayers(playersData ?? []);
 
-      // Identify "me" from saved player ID (written at insert time in home screen)
+      // Identify "me" strictly from the saved player ID written at join time.
+      // Guessing here could hand this phone another player's identity.
       if (playersData && playersData.length > 0) {
         const savedId = await AsyncStorage.getItem(`player_id_${roomData.id}`);
-        const me = savedId
-          ? (playersData.find(p => p.id === savedId) ?? playersData[playersData.length - 1])
-          : playersData[playersData.length - 1];
+        const me = savedId ? playersData.find(p => p.id === savedId) ?? null : null;
         setMyPlayer(me);
-        await AsyncStorage.setItem(`player_id_${roomData.id}`, me.id);
       }
 
       subscribeToPlayers(roomData.id);
@@ -149,6 +149,7 @@ export default function LobbyScreen() {
           room_id: room.id,
           current_player_id: players[0].id,
           turn_number: 1,
+          max_turns: calcMaxTurns(duration.minutes, players.length),
           dice_result: null,
           phase: 'rolling',
           property_levels: {},
@@ -180,7 +181,7 @@ export default function LobbyScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#f5c518" />
+        <ActivityIndicator size="large" color="#FFD23F" />
       </View>
     );
   }
@@ -226,6 +227,33 @@ export default function LobbyScreen() {
       />
 
       <View style={styles.footer}>
+        {isHost && (
+          <View style={styles.durBox}>
+            <Text style={styles.durLabel}>{t('game_length', locale)}</Text>
+            <View style={styles.durRow}>
+              {GAME_DURATIONS.map(d => {
+                const active = duration.key === d.key;
+                return (
+                  <TouchableOpacity
+                    key={d.key}
+                    style={[styles.durChip, active && styles.durChipActive]}
+                    onPress={() => setDuration(d)}
+                  >
+                    <Text style={[styles.durChipTxt, active && styles.durChipTxtActive]}>
+                      {t(`dur_${d.key}`, locale)}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <Text style={styles.durInfo}>
+              {t('dur_info', locale, {
+                rounds: calcMaxTurns(duration.minutes, Math.max(1, players.length)) / Math.max(1, players.length),
+                min: duration.minutes,
+              })}
+            </Text>
+          </View>
+        )}
         {isHost ? (
           <TouchableOpacity
             style={[styles.startBtn, !canStart && styles.startBtnDisabled]}
@@ -233,7 +261,7 @@ export default function LobbyScreen() {
             disabled={!canStart || starting}
           >
             {starting ? (
-              <ActivityIndicator color="#1a0a2e" />
+              <ActivityIndicator color="#1a1409" />
             ) : (
               <Text style={styles.startBtnText}>
                 {canStart ? t('start_game', locale) : t('wait_min', locale)}
@@ -242,7 +270,7 @@ export default function LobbyScreen() {
           </TouchableOpacity>
         ) : (
           <View style={styles.waitingBox}>
-            <ActivityIndicator color="#f5c518" style={{ marginRight: 10 }} />
+            <ActivityIndicator color="#FFD23F" style={{ marginRight: 10 }} />
             <Text style={styles.waitingText}>{t('waiting_host', locale)}</Text>
           </View>
         )}
@@ -263,54 +291,62 @@ export default function LobbyScreen() {
   );
 }
 
+const GOLD = '#FFD23F';
+const BG   = '#0a0d18';
+const CARD = '#13182a';
+const INK  = '#1a1409';
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a0a2e',
+    backgroundColor: BG,
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 56,
   },
   center: {
     flex: 1,
-    backgroundColor: '#1a0a2e',
+    backgroundColor: BG,
     justifyContent: 'center',
     alignItems: 'center',
   },
   codeBox: {
-    backgroundColor: '#2a1a4e',
+    backgroundColor: CARD,
     borderRadius: 16,
     padding: 20,
     alignItems: 'center',
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: '#f5c518',
+    borderColor: GOLD,
   },
   codeLabel: {
-    color: '#aaa',
+    color: '#9aa0b5',
     fontSize: 13,
     textTransform: 'uppercase',
     letterSpacing: 2,
     marginBottom: 8,
   },
   codeText: {
-    color: '#f5c518',
+    color: GOLD,
     fontSize: 48,
-    fontWeight: '900',
-    letterSpacing: 12,
+    fontFamily: FONTS.display,
+    letterSpacing: 10,
   },
   shareBtn: {
     marginTop: 12,
     paddingHorizontal: 20,
     paddingVertical: 8,
     borderRadius: 8,
-    backgroundColor: '#3a2a6e',
+    backgroundColor: 'rgba(255,210,63,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,210,63,0.4)',
   },
   shareBtnText: {
-    color: '#fff',
+    color: GOLD,
     fontSize: 14,
+    fontWeight: '700',
   },
   sectionTitle: {
-    color: '#f5c518',
+    color: GOLD,
     fontSize: 16,
     fontWeight: '700',
     marginBottom: 12,
@@ -323,22 +359,24 @@ const styles = StyleSheet.create({
   playerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#2a1a4e',
+    backgroundColor: CARD,
     borderRadius: 12,
     padding: 14,
     marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
   },
   playerAvatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#f5c518',
+    backgroundColor: GOLD,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
   playerAvatarText: {
-    color: '#1a0a2e',
+    color: INK,
     fontWeight: '900',
     fontSize: 18,
   },
@@ -349,22 +387,22 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   hostBadge: {
-    color: '#f5c518',
+    color: GOLD,
     fontSize: 13,
     marginLeft: 8,
   },
   youBadge: {
-    color: '#aaa',
+    color: '#9aa0b5',
     fontSize: 12,
     fontStyle: 'italic',
     marginLeft: 8,
-    backgroundColor: '#3a2a6e',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 6,
   },
   emptyText: {
-    color: '#555',
+    color: '#5a6070',
     textAlign: 'center',
     marginTop: 40,
     fontSize: 14,
@@ -372,17 +410,59 @@ const styles = StyleSheet.create({
   footer: {
     paddingVertical: 20,
   },
+  durBox: {
+    marginBottom: 14,
+  },
+  durLabel: {
+    color: '#9aa0b5',
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  durRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  durChip: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    backgroundColor: CARD,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  durChipActive: {
+    backgroundColor: 'rgba(255,210,63,0.14)',
+    borderColor: GOLD,
+  },
+  durChipTxt: {
+    color: '#9aa0b5',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  durChipTxtActive: {
+    color: GOLD,
+  },
+  durInfo: {
+    color: '#5a6070',
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 8,
+  },
   startBtn: {
-    backgroundColor: '#f5c518',
+    backgroundColor: GOLD,
     borderRadius: 14,
     paddingVertical: 18,
     alignItems: 'center',
   },
   startBtnDisabled: {
-    backgroundColor: '#3a2a6e',
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   startBtnText: {
-    color: '#1a0a2e',
+    color: INK,
     fontSize: 18,
     fontWeight: '800',
   },
@@ -393,7 +473,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   waitingText: {
-    color: '#aaa',
+    color: '#9aa0b5',
     fontSize: 15,
   },
   alertOverlay: {
@@ -409,10 +489,10 @@ const styles = StyleSheet.create({
     padding: 28,
     width: '100%',
     borderWidth: 1,
-    borderColor: 'rgba(245,197,24,0.25)',
+    borderColor: 'rgba(255,210,63,0.25)',
   },
   alertTitle: {
-    color: '#f5c518',
+    color: GOLD,
     fontSize: 18,
     fontWeight: '800',
     textAlign: 'center',
@@ -426,13 +506,13 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   alertBtn: {
-    backgroundColor: '#f5c518',
+    backgroundColor: GOLD,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
   },
   alertBtnText: {
-    color: '#1a0a2e',
+    color: INK,
     fontSize: 16,
     fontWeight: '800',
   },

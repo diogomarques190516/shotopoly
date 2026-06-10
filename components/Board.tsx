@@ -2,8 +2,8 @@ import { useMemo } from 'react';
 import { View, Text } from 'react-native';
 import { Player, BoardSpace } from '../lib/types';
 import { ALL_SPACES, indexToGrid } from '../lib/gameLogic';
-import { C, PLAYER_COLORS, PLAYER_EMOJIS, CORNER_TYPES, getBandColor } from '../constants/gameConstants';
-import { getLocale, getSpaceName } from '../lib/i18n';
+import { C, FONTS, PLAYER_COLORS, PLAYER_EMOJIS, CORNER_TYPES, getBandColor } from '../constants/gameConstants';
+import { getLocale, getSpaceName, t } from '../lib/i18n';
 
 export type TokenInfo = { id: string; color: string; emoji: string };
 
@@ -107,13 +107,13 @@ function BoardCenter({ tileSize, turnNumber }: { tileSize: number; turnNumber: n
     <View style={{ position: 'absolute', top: tileSize, left: tileSize, width: inner, height: inner, alignItems: 'center', justifyContent: 'center' }}>
       <View style={{ transform: [{ rotate: '-12deg' }], alignItems: 'center', gap: 4 }}>
         <Text style={{ fontSize: 9, color: 'rgba(255,210,63,0.5)', letterSpacing: 3, textTransform: 'uppercase' }}>
-          Rodada {String(turnNumber).padStart(2, '0')}
+          {t('board_round', getLocale(), { n: String(turnNumber).padStart(2, '0') })}
         </Text>
-        <Text style={{ fontSize: inner * 0.075, fontWeight: '900', color: C.gold, letterSpacing: -1, lineHeight: inner * 0.085, textAlign: 'center' }}>
+        <Text style={{ fontSize: inner * 0.085, fontFamily: FONTS.display, color: C.gold, lineHeight: inner * 0.1, textAlign: 'center' }}>
           {'SHOTO\nPOLY'}
         </Text>
         <Text style={{ fontSize: 8, color: 'rgba(57,255,139,0.55)', letterSpacing: 2, textTransform: 'uppercase' }}>
-          SHOTOPOLY
+          🥃 🎲 🥃
         </Text>
       </View>
     </View>

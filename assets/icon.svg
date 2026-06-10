@@ -1,9 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
   <defs>
     <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#B14CFF"/>
-      <stop offset="55%" stop-color="#7B3FE4"/>
-      <stop offset="100%" stop-color="#3D1B6B"/>
+      <stop offset="0%" stop-color="#FF5252"/>
+      <stop offset="55%" stop-color="#E94560"/>
+      <stop offset="100%" stop-color="#8E1230"/>
     </linearGradient>
     <linearGradient id="liqGrad" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="#FFE566"/>
@@ -26,11 +26,11 @@
   <polygon points="232,188 400,188 300,664 364,664" fill="url(#shineGrad)"/>
 
   <!-- Die pips — 5-face pattern in dark purple -->
-  <circle cx="392" cy="306" r="34" fill="#2D0B58"/>
-  <circle cx="632" cy="306" r="34" fill="#2D0B58"/>
-  <circle cx="512" cy="426" r="34" fill="#2D0B58"/>
-  <circle cx="392" cy="546" r="34" fill="#2D0B58"/>
-  <circle cx="632" cy="546" r="34" fill="#2D0B58"/>
+  <circle cx="392" cy="306" r="34" fill="#6E0B22"/>
+  <circle cx="632" cy="306" r="34" fill="#6E0B22"/>
+  <circle cx="512" cy="426" r="34" fill="#6E0B22"/>
+  <circle cx="392" cy="546" r="34" fill="#6E0B22"/>
+  <circle cx="632" cy="546" r="34" fill="#6E0B22"/>
 
   <!-- Glass outline — top rim -->
   <line x1="232" y1="188" x2="792" y2="188" stroke="#FFE066" stroke-width="22" stroke-linecap="round"/>
