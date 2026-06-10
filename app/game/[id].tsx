@@ -17,9 +17,11 @@ import { Player, GameState, BoardSpace } from '../../lib/types';
 import { getBoardSpace, BOARD_SIZE, drawEventCard } from '../../lib/gameLogic';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
-import { Board } from '../../components/Board';
+import { Board, WALK_STEP_MS } from '../../components/Board';
+import { ZoomableBoard } from '../../components/ZoomableBoard';
 import { DiceRollModal } from '../../components/DiceRollModal';
 import { PropertiesPanel } from '../../components/PropertiesPanel';
+import { PlayerInfoModal } from '../../components/PlayerInfoModal';
 import {
   C,
   FONTS,
@@ -28,6 +30,7 @@ import {
   formatMoney,
   getLeveledRent,
   getLeveledSips,
+  netWorth,
 } from '../../constants/gameConstants';
 import { Token } from '../../components/Token';
 import { initSounds, playSound } from '../../lib/sounds';
@@ -46,17 +49,6 @@ type ModalType =
   | { kind: 'claim' }
   | { kind: 'winner'; winnerName: string; winnerIdx: number; totalRounds: number; finalStandings: Array<{ name: string; worth: number; shots: number; playerIdx: number }> }
   | null;
-
-// Final ranking value: cash + what was invested in properties (price + upgrades)
-function netWorth(p: Player, propLevels: Record<string, number>): number {
-  const props = (p.properties as number[]) ?? [];
-  return props.reduce((sum, pos) => {
-    const space = getBoardSpace(pos);
-    const level = propLevels[String(pos)] ?? 1;
-    const upgrades = UPGRADE_COST.slice(1, level).reduce((a, b) => a + b, 0);
-    return sum + (space.price ?? 0) + upgrades;
-  }, p.money);
-}
 
 // ── GameScreen ────────────────────────────────────────────────────────────────
 
@@ -84,8 +76,8 @@ export default function GameScreen() {
   const [lastRoll,      setLastRoll]      = useState<number | null>(null);
   const [landedSpace,   setLandedSpace]   = useState<BoardSpace | null>(null);
   const [loading,       setLoading]       = useState(true);
-  const [animPositions, setAnimPositions] = useState<Record<string, number>>({});
   const [idleSeconds,   setIdleSeconds]   = useState(0);
+  const [infoPlayerId,  setInfoPlayerId]  = useState<string | null>(null);
 
   const channelsRef            = useRef<RealtimeChannel[]>([]);
   const myPlayerIdRef          = useRef<string | null>(null);
@@ -284,21 +276,11 @@ export default function GameScreen() {
 
     try {
       playSound('dice');
-      // Hop animation — step through each tile
-      for (let step = 1; step <= dice; step++) {
-        setAnimPositions({ [myPlayer.id]: (startPos + step) % BOARD_SIZE });
-        playSound('hop');
-        await new Promise<void>(res => setTimeout(res, 180));
-      }
-      // Hold token at final position in animPositions while we update local state
-      setAnimPositions({ [myPlayer.id]: newPos });
-
-      // Persist final position; GO bonus as an atomic increment
+      // Persist position + GO bonus; the board walks the token there on every
+      // client (the WalkingToken animates whenever a position changes)
       await supabase.from('players').update({ position: newPos }).eq('id', myPlayer.id);
       if (passedGo) await adjustMoney(myPlayer.id, 200000);
 
-      // Update local players state with new position so clearing animPositions
-      // won't snap the token back to the old position
       const freshMoney = passedGo ? myPlayer.money + 200000 : myPlayer.money;
       const updatedPlayers = players.map(p =>
         p.id === myPlayer.id ? { ...p, position: newPos, money: freshMoney } : p
@@ -306,8 +288,8 @@ export default function GameScreen() {
       setPlayers(updatedPlayers);
       setMyPlayer(updatedPlayers.find(p => p.id === myPlayer.id) ?? myPlayer);
 
-      // Now safe to clear — token is already at newPos in local state
-      setAnimPositions({});
+      // Let the token finish walking before any modal opens
+      await new Promise<void>(res => setTimeout(res, dice * WALK_STEP_MS + 350));
 
       if (passedGo) {
         playSound('go');
@@ -320,7 +302,6 @@ export default function GameScreen() {
       showNotification(t('err_title', locale), err.message, C.danger);
     } finally {
       setRolling(false);
-      setAnimPositions({});
     }
   }, [gameState, myPlayer, players]);
 
@@ -705,13 +686,16 @@ export default function GameScreen() {
       </View>
 
       <View style={{ alignItems: 'center', paddingTop: 4 }}>
-        <Board
-          players={players}
-          boardWidth={boardWidth}
-          turnNumber={currentRound}
-          propLevels={propLevels}
-          animPositions={animPositions}
-        />
+        <ZoomableBoard size={boardWidth}>
+          <Board
+            players={players}
+            boardWidth={boardWidth}
+            turnNumber={currentRound}
+            propLevels={propLevels}
+            onPlayerPress={setInfoPlayerId}
+            onTokenStep={() => playSound('hop')}
+          />
+        </ZoomableBoard>
       </View>
 
       {lastRoll !== null && (
@@ -727,6 +711,7 @@ export default function GameScreen() {
         myPlayerId={myPlayer?.id ?? null}
         propLevels={propLevels}
         onDrink={handleDrinkShot}
+        onPlayerPress={setInfoPlayerId}
       />
 
       <View style={{ height: DICE_H }} />
@@ -989,6 +974,14 @@ export default function GameScreen() {
           </View>
         )}
       </Modal>
+
+      {/* ── PLAYER INFO CARD (tap a token or panel row) ── */}
+      <PlayerInfoModal
+        player={players.find(p => p.id === infoPlayerId) ?? null}
+        playerIdx={Math.max(0, players.findIndex(p => p.id === infoPlayerId))}
+        propLevels={propLevels}
+        onClose={() => setInfoPlayerId(null)}
+      />
 
       {/* ── NOTIFICATION (tax, jail, GO, errors) ── */}
       <Modal visible={modal?.kind === 'notification'} transparent animationType="fade">

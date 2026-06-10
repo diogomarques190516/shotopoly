@@ -1,13 +1,99 @@
-import { useMemo } from 'react';
-import { View, Text, Image } from 'react-native';
+import { useEffect, useMemo, useRef } from 'react';
+import { View, Text, Image, Pressable, Animated, Easing } from 'react-native';
 import { Player, BoardSpace } from '../lib/types';
-import { ALL_SPACES, indexToGrid } from '../lib/gameLogic';
+import { ALL_SPACES, BOARD_SIZE, indexToGrid } from '../lib/gameLogic';
 import { C, FONTS, CORNER_TYPES, SPACE_ICONS, PLAYER_COLORS, getBandColor } from '../constants/gameConstants';
 import { getLocale, getSpaceName, t } from '../lib/i18n';
 import { Token } from './Token';
 
-function SpaceTile({ space, side, tokenIdxs, owner, size }: {
-  space: BoardSpace; side: string; tokenIdxs: number[];
+// How long one hop between adjacent tiles takes. The game screen waits for
+// `steps * WALK_STEP_MS` before opening result modals.
+export const WALK_STEP_MS = 230;
+
+function tileCenter(pos: number, tileSize: number) {
+  const { row, col } = indexToGrid(pos);
+  return { x: col * tileSize + tileSize / 2, y: row * tileSize + tileSize / 2 };
+}
+
+// A token that physically walks tile-by-tile to its target position,
+// hopping with a little jump arc — including on spectators' screens,
+// since it animates whenever the player's position changes.
+function WalkingToken({ playerIdx, position, tileSize, onStep, onPress }: {
+  playerIdx: number; position: number; tileSize: number;
+  onStep?: () => void; onPress?: () => void;
+}) {
+  const size = Math.max(16, Math.round(tileSize * 0.44));
+  // deterministic fan offset so tokens sharing a tile stay visible
+  const angle = (playerIdx / 8) * Math.PI * 2 + 0.6;
+  const off = {
+    x: Math.cos(angle) * tileSize * 0.16,
+    y: Math.sin(angle) * tileSize * 0.16,
+  };
+  const dest = (pos: number) => {
+    const c = tileCenter(pos, tileSize);
+    return { x: c.x + off.x - size / 2, y: c.y + off.y - size / 2 };
+  };
+
+  const xy   = useRef(new Animated.ValueXY(dest(position))).current;
+  const jump = useRef(new Animated.Value(0)).current;
+  const curRef    = useRef(position);
+  const targetRef = useRef(position);
+  const busyRef   = useRef(false);
+
+  useEffect(() => {
+    targetRef.current = position;
+    if (busyRef.current || curRef.current === position) return;
+    busyRef.current = true;
+    (async () => {
+      while (curRef.current !== targetRef.current) {
+        // walk the shorter way around (handles "go back 2" cards)
+        const fwd = ((targetRef.current - curRef.current) + BOARD_SIZE) % BOARD_SIZE;
+        const dir = fwd <= BOARD_SIZE / 2 ? 1 : -1;
+        curRef.current = (curRef.current + dir + BOARD_SIZE) % BOARD_SIZE;
+        onStep?.();
+        await new Promise<void>(res => {
+          Animated.parallel([
+            Animated.timing(xy, {
+              toValue: dest(curRef.current),
+              duration: WALK_STEP_MS,
+              easing: Easing.inOut(Easing.quad),
+              useNativeDriver: true,
+            }),
+            Animated.sequence([
+              Animated.timing(jump, { toValue: 1, duration: WALK_STEP_MS / 2, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+              Animated.timing(jump, { toValue: 0, duration: WALK_STEP_MS / 2, easing: Easing.in(Easing.quad), useNativeDriver: true }),
+            ]),
+          ]).start(() => res());
+        });
+      }
+      busyRef.current = false;
+    })();
+  }, [position, tileSize]);
+
+  const hopY  = jump.interpolate({ inputRange: [0, 1], outputRange: [0, -tileSize * 0.38] });
+  const hopSc = jump.interpolate({ inputRange: [0, 1], outputRange: [1, 1.22] });
+
+  return (
+    <Animated.View
+      pointerEvents="box-none"
+      style={{
+        position: 'absolute', left: 0, top: 0,
+        transform: [
+          { translateX: xy.x },
+          { translateY: Animated.add(xy.y, hopY) },
+          { scale: hopSc },
+        ],
+      }}
+    >
+      <Pressable onPress={onPress} hitSlop={8}>
+        <Token playerIdx={playerIdx} size={size} framed />
+      </Pressable>
+    </Animated.View>
+  );
+}
+
+function SpaceTile({ space, side, owner, size }: {
+  space: BoardSpace; side: string;
   owner?: { color: string; level: number };
   size: number;
 }) {
@@ -80,19 +166,6 @@ function SpaceTile({ space, side, tokenIdxs, owner, size }: {
           ))}
         </View>
       )}
-
-      {tokenIdxs.length > 0 && (
-        <View style={{ position: 'absolute', bottom: 1, right: 1, flexDirection: 'row', alignItems: 'flex-end' }}>
-          {tokenIdxs.slice(0, 4).map((idx, i) => (
-            <View key={idx} style={{ marginLeft: i > 0 ? -5 : 0, zIndex: tokenIdxs.length - i }}>
-              <Token playerIdx={idx} size={tokenIdxs.length > 2 ? 9 : 11} framed />
-            </View>
-          ))}
-          {tokenIdxs.length > 4 && (
-            <Text style={{ fontSize: 7, color: C.amber, marginLeft: -3, zIndex: 10 }}>+{tokenIdxs.length - 4}</Text>
-          )}
-        </View>
-      )}
     </View>
   );
 }
@@ -114,22 +187,13 @@ function BoardCenter({ tileSize, turnNumber }: { tileSize: number; turnNumber: n
   );
 }
 
-export function Board({ players, boardWidth, turnNumber, propLevels, animPositions }: {
+export function Board({ players, boardWidth, turnNumber, propLevels, onPlayerPress, onTokenStep }: {
   players: Player[]; boardWidth: number; turnNumber: number;
   propLevels: Record<string, number>;
-  animPositions?: Record<string, number>;
+  onPlayerPress?: (playerId: string) => void;
+  onTokenStep?: () => void;
 }) {
   const tileSize = boardWidth / 8;
-
-  const tokensByPos = useMemo(() => {
-    const map: Record<number, number[]> = {};
-    players.forEach((p, idx) => {
-      const pos = animPositions?.[p.id] ?? p.position;
-      if (!map[pos]) map[pos] = [];
-      map[pos].push(idx);
-    });
-    return map;
-  }, [players, animPositions]);
 
   const ownersByPos = useMemo(() => {
     const map: Record<number, { color: string; level: number }> = {};
@@ -156,10 +220,20 @@ export function Board({ players, boardWidth, turnNumber, propLevels, animPositio
         else                side = 'right';
         return (
           <View key={idx} style={{ position: 'absolute', top: row * tileSize, left: col * tileSize }}>
-            <SpaceTile space={space} side={side} tokenIdxs={tokensByPos[idx] ?? []} owner={ownersByPos[idx]} size={tileSize} />
+            <SpaceTile space={space} side={side} owner={ownersByPos[idx]} size={tileSize} />
           </View>
         );
       })}
+      {players.map((p, idx) => (
+        <WalkingToken
+          key={p.id}
+          playerIdx={idx}
+          position={p.position}
+          tileSize={tileSize}
+          onStep={onTokenStep}
+          onPress={() => onPlayerPress?.(p.id)}
+        />
+      ))}
     </View>
   );
 }

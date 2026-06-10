@@ -7,12 +7,13 @@ import { Token } from './Token';
 
 // Always lists EVERY player with their cash and pending shots — the money
 // scoreboard lives here, not just property owners.
-export function PropertiesPanel({ players, currentPlayerId, myPlayerId, propLevels, onDrink }: {
+export function PropertiesPanel({ players, currentPlayerId, myPlayerId, propLevels, onDrink, onPlayerPress }: {
   players: Player[];
   currentPlayerId: string;
   myPlayerId: string | null;
   propLevels: Record<string, number>;
   onDrink?: (playerId: string) => void;
+  onPlayerPress?: (playerId: string) => void;
 }) {
   // Current player first, then the rest in turn order
   const currentIdx = players.findIndex(p => p.id === currentPlayerId);
@@ -36,8 +37,12 @@ export function PropertiesPanel({ players, currentPlayerId, myPlayerId, propLeve
 
           return (
             <View key={p.id} style={{ marginBottom: orderedIdx < ordered.length - 1 ? 5 : 0 }}>
-              {/* Player row: token · name · money · shots */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, marginBottom: props.length > 0 ? 3 : 0, gap: 6 }}>
+              {/* Player row: token · name · money · shots — tap for full card */}
+              <TouchableOpacity
+                onPress={() => onPlayerPress?.(p.id)}
+                activeOpacity={0.7}
+                style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, marginBottom: props.length > 0 ? 3 : 0, gap: 6 }}
+              >
                 {isActive && <View style={{ width: 3, height: 12, borderRadius: 2, backgroundColor: C.accent }} />}
                 <Token playerIdx={globalIdx} size={13} />
                 <Text style={{ fontSize: 11, fontFamily: isMe ? FONTS.bodyHeavy : FONTS.body, color: isMe ? '#fff' : C.textDim }} numberOfLines={1}>
@@ -58,7 +63,7 @@ export function PropertiesPanel({ players, currentPlayerId, myPlayerId, propLeve
                 ) : (
                   <View style={{ width: 34 }} />
                 )}
-              </View>
+              </TouchableOpacity>
 
               {/* Property cards — horizontal scroll */}
               {props.length > 0 && (

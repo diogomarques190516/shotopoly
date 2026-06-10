@@ -121,6 +121,7 @@ export const UI = {
     board_round:'Ronda {n}',
     no_props_yet:'Ainda não há propriedades compradas.',
     networth:'Fortuna',
+    props_label:'Propriedades ({n})',
     game_over_sub:'Fim das {n} rondas — ganha a maior fortuna!',
   },
 
@@ -212,6 +213,7 @@ export const UI = {
     board_round:'Round {n}',
     no_props_yet:'No properties bought yet.',
     networth:'Net worth',
+    props_label:'Properties ({n})',
     game_over_sub:'All {n} rounds played — biggest fortune wins!',
   },
 
@@ -303,6 +305,7 @@ export const UI = {
     board_round:'Tour {n}',
     no_props_yet:'Aucune propriété achetée pour l\'instant.',
     networth:'Fortune',
+    props_label:'Propriétés ({n})',
     game_over_sub:'Les {n} tours sont joués — la plus grande fortune gagne !',
   },
 
@@ -394,6 +397,7 @@ export const UI = {
     board_round:'Runde {n}',
     no_props_yet:'Noch keine Grundstücke gekauft.',
     networth:'Vermögen',
+    props_label:'Grundstücke ({n})',
     game_over_sub:'Alle {n} Runden gespielt — das größte Vermögen gewinnt!',
   },
 
@@ -485,6 +489,7 @@ export const UI = {
     board_round:'Ronda {n}',
     no_props_yet:'Aún no hay propiedades compradas.',
     networth:'Fortuna',
+    props_label:'Propiedades ({n})',
     game_over_sub:'¡Las {n} rondas terminaron — gana la mayor fortuna!',
   },
 };

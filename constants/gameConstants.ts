@@ -113,6 +113,17 @@ export function getLeveledRent(space: BoardSpace, propLevels: Record<string, num
   return (space.rent ?? 0) * level * (monopoly ? 2 : 1);
 }
 
+// Ranking value: cash + what was invested in properties (price + upgrades)
+export function netWorth(p: Player, propLevels: Record<string, number>): number {
+  const props = (p.properties as number[]) ?? [];
+  return props.reduce((sum, pos) => {
+    const space = ALL_SPACES.find(s => s.position === pos);
+    const level = propLevels[String(pos)] ?? 1;
+    const upgrades = UPGRADE_COST.slice(1, level).reduce((a, b) => a + b, 0);
+    return sum + (space?.price ?? 0) + upgrades;
+  }, p.money);
+}
+
 export function getLeveledSips(space: BoardSpace, propLevels: Record<string, number>): number {
   const level = propLevels[String(space.position)] ?? 1;
   const match = space.sub?.match(/×(\d)/);
