@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Share,
   Image,
+  AppState,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -32,6 +33,7 @@ export default function LobbyScreen() {
   const [duration, setDuration] = useState<typeof GAME_DURATIONS[number]>(GAME_DURATIONS[1]);
   const [alertModal, setAlertModal] = useState<{ title: string; message: string } | null>(null);
   const channelsRef = useRef<RealtimeChannel[]>([]);
+  const roomIdRef = useRef<string | null>(null);
 
   function showAlert(title: string, message: string) { setAlertModal({ title, message }); }
 
@@ -42,6 +44,28 @@ export default function LobbyScreen() {
       channelsRef.current = [];
     };
   }, [code]);
+
+  // Re-sync on foreground: a phone that locked while waiting could miss the
+  // host pressing start. On resume, re-check the room (jump to the game if it
+  // already started), refresh the player list and rebuild the channels.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', async (next) => {
+      const rid = roomIdRef.current;
+      if (next !== 'active' || !rid) return;
+      const { data: r } = await supabase.from('rooms').select().eq('id', rid).single();
+      if (r?.status === 'playing') {
+        const { data: gs } = await supabase.from('game_states').select('id').eq('room_id', rid).order('created_at', { ascending: false }).limit(1).maybeSingle();
+        if (gs) { router.replace(`/game/${gs.id}`); return; }
+      }
+      const { data } = await supabase.from('players').select().eq('room_id', rid).order('created_at', { ascending: true });
+      setPlayers(data ?? []);
+      channelsRef.current.forEach(c => supabase.removeChannel(c));
+      channelsRef.current = [];
+      subscribeToPlayers(rid);
+      subscribeToRoom(rid);
+    });
+    return () => sub.remove();
+  }, []);
 
   async function loadRoom() {
     try {
@@ -59,6 +83,7 @@ export default function LobbyScreen() {
         return;
       }
       setRoom(roomData);
+      roomIdRef.current = roomData.id;
 
       const { data: playersData, error: playersErr } = await supabase
         .from('players')

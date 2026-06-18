@@ -39,6 +39,18 @@ function WalkingToken({ playerIdx, position, tileSize, onStep, onPress }: {
   const curRef    = useRef(position);
   const targetRef = useRef(position);
   const busyRef   = useRef(false);
+  const sizeRef   = useRef(tileSize);
+
+  // Board resized/rotated but the token didn't move: snap to the new tile
+  // center instead of leaving it at coordinates from the old tile size.
+  useEffect(() => {
+    if (sizeRef.current !== tileSize && !busyRef.current && curRef.current === position) {
+      sizeRef.current = tileSize;
+      xy.setValue(dest(position));
+    } else {
+      sizeRef.current = tileSize;
+    }
+  }, [tileSize]);
 
   useEffect(() => {
     targetRef.current = position;
@@ -68,7 +80,7 @@ function WalkingToken({ playerIdx, position, tileSize, onStep, onPress }: {
       }
       busyRef.current = false;
     })();
-  }, [position, tileSize]);
+  }, [position]);
 
   const hopY  = jump.interpolate({ inputRange: [0, 1], outputRange: [0, -tileSize * 0.38] });
   const hopSc = jump.interpolate({ inputRange: [0, 1], outputRange: [1, 1.22] });

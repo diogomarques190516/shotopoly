@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   useWindowDimensions,
   Image,
+  AppState,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -80,6 +81,7 @@ export default function GameScreen() {
   const [idleSeconds,   setIdleSeconds]   = useState(0);
   const [infoPlayerId,  setInfoPlayerId]  = useState<string | null>(null);
   const [infoSpace,     setInfoSpace]     = useState<BoardSpace | null>(null);
+  const [connected,     setConnected]     = useState(true);
 
   const channelsRef            = useRef<RealtimeChannel[]>([]);
   const myPlayerIdRef          = useRef<string | null>(null);
@@ -97,6 +99,21 @@ export default function GameScreen() {
       channelsRef.current.forEach(c => supabase.removeChannel(c));
       channelsRef.current = [];
     };
+  }, [id]);
+
+  // Re-sync when the app returns to the foreground: a locked/backgrounded
+  // phone suspends its websocket and can miss live updates. Rebuild the
+  // channels and pull fresh state so the player never gets stuck behind.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next !== 'active' || !roomIdRef.current) return;
+      channelsRef.current.forEach(c => supabase.removeChannel(c));
+      channelsRef.current = [];
+      subscribeGS(id);
+      subscribePlayers(roomIdRef.current);
+      refreshState();
+    });
+    return () => sub.remove();
   }, [id]);
 
   // Show jail choice modal when it becomes this player's turn while jailed
@@ -221,24 +238,36 @@ export default function GameScreen() {
     }
   }
 
+  // Re-fetch the full game state + players from the server. Called by the
+  // realtime handlers and, crucially, whenever the app returns to the
+  // foreground — a phone that locked mid-game may have missed live updates
+  // while its socket was suspended.
+  async function refreshState() {
+    const rid = roomIdRef.current;
+    const [{ data: gs }, { data: ps }] = await Promise.all([
+      supabase.from('game_states').select().eq('id', id).single(),
+      rid ? supabase.from('players').select().eq('room_id', rid).order('created_at', { ascending: true })
+          : Promise.resolve({ data: [] as Player[] }),
+    ]);
+    if (gs) setGameState(gs);
+    const all = ps ?? [];
+    if (all.length) {
+      setPlayers(all);
+      setMyPlayer(all.find(p => p.id === myPlayerIdRef.current) ?? null);
+    }
+  }
+
   function subscribeGS(gsId: string) {
     const ch = supabase.channel(`gs:${gsId}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'game_states', filter: `id=eq.${gsId}` },
         async (payload) => {
           const gs = payload.new as GameState;
-          console.log('[realtime] game_states UPDATE', { turn: gs.turn_number, currentPlayerId: gs.current_player_id });
           setGameState(gs);
-          // Also refresh players so board stays in sync without waiting for players subscription
-          const rid = roomIdRef.current;
-          if (rid) {
-            const { data } = await supabase.from('players').select().eq('room_id', rid).order('created_at', { ascending: true });
-            const all = data ?? [];
-            setPlayers(all);
-            setMyPlayer(all.find(p => p.id === myPlayerIdRef.current) ?? null);
-          }
+          await refreshState();
         })
       .subscribe((status) => {
         console.log('[realtime] gs channel status:', status);
+        setConnected(prev => status === 'SUBSCRIBED' ? true : status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED' ? false : prev);
       });
     channelsRef.current.push(ch);
   }
@@ -246,16 +275,8 @@ export default function GameScreen() {
   function subscribePlayers(roomId: string) {
     const ch = supabase.channel(`gp:${roomId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'players', filter: `room_id=eq.${roomId}` },
-        async (payload) => {
-          console.log('[realtime] players', payload.eventType, { id: (payload.new as any)?.id, pos: (payload.new as any)?.position });
-          const { data } = await supabase.from('players').select().eq('room_id', roomId).order('created_at', { ascending: true });
-          const all = data ?? [];
-          setPlayers(all);
-          setMyPlayer(all.find(p => p.id === myPlayerIdRef.current) ?? null);
-        })
-      .subscribe((status) => {
-        console.log('[realtime] players channel status:', status);
-      });
+        async () => { await refreshState(); })
+      .subscribe();
     channelsRef.current.push(ch);
   }
 
@@ -680,7 +701,10 @@ export default function GameScreen() {
   return (
     <View style={gs.screen}>
       <View style={[gs.header, { paddingTop: insets.top + 8 }]}>
-        <Text style={gs.headerSub}>{t('round_of', locale, { code: roomCode, r: currentRound, rt: totalRounds })}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: connected ? C.green : C.danger }} />
+          <Text style={gs.headerSub}>{t('round_of', locale, { code: roomCode, r: currentRound, rt: totalRounds })}</Text>
+        </View>
         <Text style={gs.headerTitle}>SHOTOPOLY</Text>
         <TouchableOpacity style={[gs.exitBtn, { top: insets.top + 8 }]} onPress={exitGame}>
           <Text style={gs.exitTxt}>{t('exit', locale)}</Text>
